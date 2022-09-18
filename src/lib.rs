@@ -117,7 +117,7 @@ impl<'de> Deserialize<'de> for Lang {
 }
 
 impl AsRef<str> for Lang {
-    fn as_ref(&self) -> &str {
+    fn as_ref(&self) -> &'static str {
         match self {
             Self::BG => "BG",
             Self::CS => "CS",
@@ -177,10 +177,14 @@ impl DeepLApi {
     pub async fn translate(
         &self,
         text: &str,
+        translate_from: Option<Lang>,
         translate_into: Lang,
     ) -> anyhow::Result<DeepLApiResponse> {
         let mut param = HashMap::new();
         param.insert("text", text);
+        if let Some(ref la) = translate_from {
+            param.insert("source_lang", la.as_ref());
+        }
         param.insert("target_lang", translate_into.as_ref());
         let response = self
             .client
@@ -202,7 +206,7 @@ impl DeepLApi {
 async fn test_translator() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
     let api = DeepLApi::new(&key);
-    let response = api.translate("Hello World", Lang::ZH).await.unwrap();
+    let response = api.translate("Hello World", None, Lang::ZH).await.unwrap();
 
     assert!(!response.translations.is_empty());
 
