@@ -4,6 +4,11 @@ use std::collections::HashMap;
 
 const TRANSLATE_TEXT_ENDPOINT: &str = "https://api-free.deepl.com/v2/translate";
 
+#[derive(Debug)]
+pub enum Error {
+    InvalidLang,
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Lang {
     BG,
@@ -36,7 +41,42 @@ pub enum Lang {
 }
 
 impl Lang {
-    fn description(&self) -> String {
+    pub fn from(s: &str) -> Result<Self, Error> {
+        let lang = match s {
+            "BG" => Self::BG,
+            "CS" => Self::CS,
+            "DA" => Self::DA,
+            "DE" => Self::DE,
+            "EL" => Self::EL,
+            "EN" => Self::EN,
+            "ES" => Self::ES,
+            "ET" => Self::ET,
+            "FI" => Self::FI,
+            "FR" => Self::FR,
+            "HU" => Self::HU,
+            "ID" => Self::ID,
+            "IT" => Self::IT,
+            "JA" => Self::JA,
+            "LT" => Self::LT,
+            "LV" => Self::LV,
+            "NL" => Self::NL,
+            "PL" => Self::PL,
+            "PT" => Self::PT,
+            "RO" => Self::RO,
+            "RU" => Self::RU,
+            "SK" => Self::SK,
+            "SL" => Self::SL,
+            "SV" => Self::SV,
+            "TR" => Self::TR,
+            "UK" => Self::UK,
+            "ZH" => Self::ZH,
+            _ => return Err(Error::InvalidLang),
+        };
+
+        Ok(lang)
+    }
+
+    pub fn description(&self) -> String {
         match self {
             Self::BG => "Bulgarian".to_string(),
             Self::CS => "Czech".to_string(),
@@ -76,41 +116,11 @@ impl<'de> Deserialize<'de> for Lang {
     {
         let lang = String::deserialize(deserializer)?;
 
-        let lang = match lang.as_str() {
-            "BG" => Self::BG,
-            "CS" => Self::CS,
-            "DA" => Self::DA,
-            "DE" => Self::DE,
-            "EL" => Self::EL,
-            "EN" => Self::EN,
-            "ES" => Self::ES,
-            "ET" => Self::ET,
-            "FI" => Self::FI,
-            "FR" => Self::FR,
-            "HU" => Self::HU,
-            "ID" => Self::ID,
-            "IT" => Self::IT,
-            "JA" => Self::JA,
-            "LT" => Self::LT,
-            "LV" => Self::LV,
-            "NL" => Self::NL,
-            "PL" => Self::PL,
-            "PT" => Self::PT,
-            "RO" => Self::RO,
-            "RU" => Self::RU,
-            "SK" => Self::SK,
-            "SL" => Self::SL,
-            "SV" => Self::SV,
-            "TR" => Self::TR,
-            "UK" => Self::UK,
-            "ZH" => Self::ZH,
-            _ => return Err(
-                serde::de::Error::custom(
-                    // TODO: attach issue link
-                    format!("invalid language code {lang}. This is an internal issue with the lib, please open issue")
-                )
-            ),
-        };
+        let lang = Lang::from(&lang).map_err(|_| {
+            serde::de::Error::custom(
+                format!("invalid language code {lang}. This is an internal issue with the lib, please open issue")
+            )
+        })?;
 
         Ok(lang)
     }
@@ -161,6 +171,7 @@ pub struct SingleResult {
     pub text: String,
 }
 
+#[derive(Debug)]
 pub struct DeepLApi {
     client: reqwest::Client,
     key: String,
