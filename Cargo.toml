@@ -2,6 +2,13 @@
 name = "deepl"
 version = "0.1.0"
 edition = "2021"
+authors = ["Avimitin <avimitin@gmail.com>"]
+description = "A Rust implementation of the DeepL API"
+documentation = "https://docs.rs/puball"
+keywords = ["translate", "deepl", "api"]
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/Avimitin/deepl-rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
