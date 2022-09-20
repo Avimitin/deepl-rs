@@ -215,6 +215,8 @@ impl DeepLApi {
     /// # Example
     ///
     /// ```rust
+    /// use deepl::{DeepLApi, Lang};
+    ///
     /// let api = DeepLApi::new("YOUR AUTH KEY");
     /// api.translate("Hello World", None, Lang::ZH).await.unwrap();
     /// ```
