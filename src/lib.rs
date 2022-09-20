@@ -4,11 +4,13 @@ use std::collections::HashMap;
 
 const TRANSLATE_TEXT_ENDPOINT: &str = "https://api-free.deepl.com/v2/translate";
 
+/// Representing error during interaction with DeepL
 #[derive(Debug)]
 pub enum Error {
     InvalidLang,
 }
 
+/// Available language code for source and target text
 #[derive(Debug, PartialEq)]
 pub enum Lang {
     BG,
@@ -41,6 +43,11 @@ pub enum Lang {
 }
 
 impl Lang {
+    /// Convert literal to enum `Lang`
+    ///
+    /// # Error
+    ///
+    /// Return `Error::InvalidLang` when given language code is not in the support list.
     pub fn from(s: &str) -> Result<Self, Error> {
         let lang = match s {
             "BG" => Self::BG,
@@ -76,6 +83,7 @@ impl Lang {
         Ok(lang)
     }
 
+    /// Return full language name for the code
     pub fn description(&self) -> String {
         match self {
             Self::BG => "Bulgarian".to_string(),
@@ -160,17 +168,20 @@ impl AsRef<str> for Lang {
     }
 }
 
+/// Response from basic translation API
 #[derive(Deserialize)]
 pub struct DeepLApiResponse {
-    pub translations: Vec<SingleResult>,
+    pub translations: Vec<Sentence>,
 }
 
+/// Translated result for a sentence
 #[derive(Deserialize)]
-pub struct SingleResult {
+pub struct Sentence {
     pub detected_source_language: Lang,
     pub text: String,
 }
 
+/// A struct that contains necessary data
 #[derive(Debug)]
 pub struct DeepLApi {
     client: reqwest::Client,
@@ -178,6 +189,7 @@ pub struct DeepLApi {
 }
 
 impl DeepLApi {
+    /// Create a new api instance with auth key
     pub fn new(key: &str) -> Self {
         Self {
             client: reqwest::Client::new(),
@@ -185,6 +197,19 @@ impl DeepLApi {
         }
     }
 
+    /// Translate the given text into expected target language. Source language is optional
+    /// and can be detemined by DeepL API.
+    ///
+    /// # Error
+    ///
+    /// Return error if the http request fail
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let api = DeepLApi::new("YOUR AUTH KEY");
+    /// api.translate("Hello World", None, Lang::ZH).await.unwrap();
+    /// ```
     pub async fn translate(
         &self,
         text: &str,
