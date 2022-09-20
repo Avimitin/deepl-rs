@@ -1,3 +1,15 @@
+//! # deepl-rs
+//!
+//! Deepl-rs is a simple wrapper for providing simple function to make request to the DeepL API endpoint
+//! and typed response. This is still a incomplete library, please open a issue on GitHub to tell
+//! me what feature you want.
+//!
+//! See the README for usage.
+//!
+//! # License
+//!
+//! This project is licensed under MIT license.
+
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use thiserror::Error;
