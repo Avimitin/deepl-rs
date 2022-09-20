@@ -201,7 +201,7 @@ impl DeepLApi {
     pub fn new(key: &str) -> Self {
         Self {
             client: reqwest::Client::new(),
-            key: key.to_string(),
+            key: format!("DeepL-Auth-Key {}", key),
         }
     }
 
@@ -233,7 +233,7 @@ impl DeepLApi {
         let response = self
             .client
             .post(TRANSLATE_TEXT_ENDPOINT)
-            .header("Authorization", format!("DeepL-Auth-Key {}", self.key))
+            .header("Authorization", &self.key)
             .form(&param)
             .send()
             .await
