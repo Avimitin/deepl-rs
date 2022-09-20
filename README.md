@@ -20,9 +20,9 @@ let api = DeepLApi::new("YOUR AUTH KEY");
 // Source lang is optional
 let translated = api.translate("Hello World", Some(Lang::EN), Lang::ZH).await.unwrap();
 
-assert!(!response.translations.is_empty());
+assert!(!translated.translations.is_empty());
 
-let sentences = response.translations;
+let sentences = translated.translations;
 assert_eq!(sentences[0].text, "你好，世界");
 ```
 
