@@ -3,6 +3,7 @@ use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
 const TRANSLATE_TEXT_ENDPOINT: &str = "https://api-free.deepl.com/v2/translate";
+const USAGE_ENDPOINT: &str = "https://api-free.deepl.com/v2/usage";
 
 /// Representing error during interaction with DeepL
 #[derive(Debug)]
@@ -181,6 +182,13 @@ pub struct Sentence {
     pub text: String,
 }
 
+/// Reponse from the usage API
+#[derive(Deserialize)]
+pub struct UsageReponse {
+    pub character_count: u64,
+    pub character_limit: u64,
+}
+
 /// A struct that contains necessary data
 #[derive(Debug)]
 pub struct DeepLApi {
@@ -236,6 +244,20 @@ impl DeepLApi {
 
         Ok(response)
     }
+
+    pub async fn get_usage(&self) -> anyhow::Result<UsageReponse> {
+        let response = self
+            .client
+            .post(USAGE_ENDPOINT)
+            .header("Authorization", &self.key)
+            .send()
+            .await?;
+
+        let response = response.bytes().await?;
+        let usage: UsageReponse = serde_json::from_slice(&response)?;
+
+        Ok(usage)
+    }
 }
 
 #[tokio::test]
@@ -249,4 +271,13 @@ async fn test_translator() {
     let translated_results = response.translations;
     assert_eq!(translated_results[0].text, "你好，世界");
     assert_eq!(translated_results[0].detected_source_language, Lang::EN);
+}
+
+#[tokio::test]
+async fn test_usage() {
+    let key = std::env::var("DEEPL_API_KEY").unwrap();
+    let api = DeepLApi::new(&key);
+    let response = api.get_usage().await.unwrap();
+
+    assert_ne!(response.character_count, 0);
 }
