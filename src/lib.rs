@@ -247,6 +247,7 @@ impl DeepLApi {
         Ok(response)
     }
 
+    /// Get the current DeepL API usage
     pub async fn get_usage(&self) -> anyhow::Result<UsageReponse> {
         let response = self
             .client
