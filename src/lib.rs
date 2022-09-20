@@ -1,15 +1,24 @@
-use anyhow::Context;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
+use thiserror::Error;
 
 const TRANSLATE_TEXT_ENDPOINT: &str = "https://api-free.deepl.com/v2/translate";
 const USAGE_ENDPOINT: &str = "https://api-free.deepl.com/v2/usage";
 
 /// Representing error during interaction with DeepL
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
-    InvalidLang,
+    #[error("invalid language code {0}")]
+    InvalidLang(String),
+
+    #[error("invalid response: {0}")]
+    InvalidReponse(String),
+
+    #[error("request fail: {0}")]
+    RequestFail(String),
 }
+
+type Result<T, E = Error> = core::result::Result<T, E>;
 
 /// Available language code for source and target text
 #[derive(Debug, PartialEq)]
@@ -78,7 +87,7 @@ impl Lang {
             "TR" => Self::TR,
             "UK" => Self::UK,
             "ZH" => Self::ZH,
-            _ => return Err(Error::InvalidLang),
+            _ => return Err(Error::InvalidLang(s.to_string())),
         };
 
         Ok(lang)
@@ -225,39 +234,52 @@ impl DeepLApi {
         text: &str,
         translate_from: Option<Lang>,
         translate_into: Lang,
-    ) -> anyhow::Result<DeepLApiResponse> {
+    ) -> Result<DeepLApiResponse> {
         let mut param = HashMap::new();
         param.insert("text", text);
         if let Some(ref la) = translate_from {
             param.insert("source_lang", la.as_ref());
         }
         param.insert("target_lang", translate_into.as_ref());
+
         let response = self
             .client
             .post(TRANSLATE_TEXT_ENDPOINT)
-            .header("Authorization", &self.key)
             .form(&param)
+            .header("Authorization", &self.key)
             .send()
             .await
-            .with_context(|| "fail to send request to DeepL Api")?
-            .json::<DeepLApiResponse>()
+            .map_err(|err| Error::RequestFail(err.to_string()))?;
+
+        let response = response
+            .bytes()
             .await
-            .with_context(|| "fail to transform DeepL response into `DeepLApiResponse` type")?;
+            .map_err(|err| Error::InvalidReponse(format!("decoding http body to byte: {err}")))?;
+        let response: DeepLApiResponse = serde_json::from_slice(&response).map_err(|err| {
+            Error::InvalidReponse(format!("convert json bytes to Rust type: {err}"))
+        })?;
 
         Ok(response)
     }
 
     /// Get the current DeepL API usage
-    pub async fn get_usage(&self) -> anyhow::Result<UsageReponse> {
+    pub async fn get_usage(&self) -> Result<UsageReponse> {
         let response = self
             .client
             .post(USAGE_ENDPOINT)
             .header("Authorization", &self.key)
             .send()
-            .await?;
+            .await
+            .map_err(|err| Error::RequestFail(err.to_string()))?;
 
-        let response = response.bytes().await?;
-        let usage: UsageReponse = serde_json::from_slice(&response)?;
+        let response = response
+            .bytes()
+            .await
+            .map_err(|err| Error::InvalidReponse(format!("decoding http body to byte: {err}")))?;
+
+        let usage: UsageReponse = serde_json::from_slice(&response).map_err(|err| {
+            Error::InvalidReponse(format!("convert json bytes to Rust type: {err}"))
+        })?;
 
         Ok(usage)
     }
