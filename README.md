@@ -25,3 +25,7 @@ assert!(!response.translations.is_empty());
 let sentences = response.translations;
 assert_eq!(sentences[0].text, "你好，世界");
 ```
+
+## License
+
+[MIT](./LICENSE)
