@@ -1,14 +1,31 @@
 //! # deepl-rs
 //!
 //! Deepl-rs is a simple wrapper for providing simple function to make request to the DeepL API endpoint
-//! and typed response. This is still a incomplete library, please open a issue on GitHub to tell
+//! and typed response.
+//!
+//! This is still a **incomplete** library, please open a issue on GitHub to tell
 //! me what feature you want.
 //!
-//! See the README for usage.
+//! # Usage
+//!
+//! * Basic Translation
+//!
+//! ```rust
+//! use deepl::DeepLApi
+//!
+//! let api = DeepLApi::new("Your DeepL Token", false); // set second param to true if you are pro user
+//! let response = api.translate("Hello World", None, Lang::ZH).await.unwrap();
+//! let translated_results = response.translations;
+//!
+//! assert_eq!(translated_results[0].text, "你好，世界");
+//! assert_eq!(translated_results[0].detected_source_language, Lang::EN);
+//! ```
 //!
 //! # License
 //!
 //! This project is licensed under MIT license.
+//!
+
 mod lang;
 
 pub use lang::Lang;
@@ -245,6 +262,17 @@ impl DeepLApi {
     }
 
     /// Get the current DeepL API usage
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use deepl::DeepLApi
+    ///
+    /// let api = DeepLApi::new("Your DeepL Token", false);
+    /// let response = api.get_usage().await.unwrap();
+    ///
+    /// assert_ne!(response.character_count, 0);
+    /// ```
     pub async fn get_usage(&self) -> Result<UsageReponse> {
         let response = self
             .post(self.endpoint.join("usage").unwrap())
@@ -267,6 +295,26 @@ impl DeepLApi {
     /// Upload document to DeepL server, returning a document ID and key which can be used
     /// to query the translation status and to download the translated document once
     /// translation is complete.
+    ///
+    /// # Example
+    ///
+    /// * Translate Document
+    ///
+    /// ```rust
+    /// use deepl::DeepLApi
+    ///
+    /// let api = DeepLApi::new(&key, false);
+    /// let prop = UploadDocumentProp::builder()
+    ///     .source_lang(Lang::EN_GB)
+    ///     .target_lang(Lang::ZH)
+    ///     .file_path("/path/to/document.docx")
+    ///     .filename("Foo Bar Baz")
+    ///     .formality(Formality::Default)
+    ///     .glossary_id("def3a26b-3e84-45b3-84ae-0c0aaf3525f7")
+    ///     .build();
+    /// let response = api.upload_document(prop).await.unwrap();
+    /// let status = api.check_document_status(&response).await.unwrap();
+    /// ```
     pub async fn upload_document(
         &self,
         mut prop: UploadDocumentProp,
