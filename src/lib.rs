@@ -158,6 +158,10 @@ impl UploadDocumentProp {
         if let Some(filename) = filename {
             part = part.file_name(filename.to_string());
             form = form.text("filename", filename);
+        } else {
+            part = part.file_name(file_path.file_name().expect(
+                "No extension found for this file, and no filename given, cannot make request",
+            ).to_str().expect("no a valid UTF-8 filepath!").to_string());
         }
 
         form = form.part("file", part);
@@ -217,7 +221,7 @@ pub struct DocumentUploadResp {
 }
 
 /// Response from api/v2/document/$ID
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct DocumentStatusResp {
     /// A unique ID assigned to the uploaded document and the requested translation process.
     /// The same ID that was used when requesting the translation status.
@@ -229,14 +233,14 @@ pub struct DocumentStatusResp {
     /// This parameter is only included while status is "translating".
     pub seconds_remaining: Option<u64>,
     /// The number of characters billed to your account.
-    pub billed_characters: u64,
+    pub billed_characters: Option<u64>,
     /// A short description of the error, if available. Note that the content is subject to change.
     /// This parameter may be included if an error occurred during translation.
     pub error_message: Option<String>,
 }
 
 /// Possible value of the document translate status
-#[derive(Deserialize, PartialEq, Eq)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum DocumentTranslateStatus {
     /// The translation job is waiting in line to be processed
@@ -439,6 +443,56 @@ impl DeepLApi {
 
         Ok(status)
     }
+
+    /// Download the possibly translated document. Downloaded document will store to current
+    /// directory, or specify by the optional `output` parameter.
+    ///
+    /// Return downloaded file's path if success
+    pub async fn download_document(
+        &self,
+        ident: &DocumentUploadResp,
+        filename: &str,
+        output_dir: Option<&str>,
+    ) -> Result<String> {
+        let url = self
+            .endpoint
+            .join(&format!("document/{}/result", ident.document_id))
+            .unwrap();
+        let form = [("document_key", ident.document_key.as_str())];
+        let mut res = self
+            .post(url)
+            .form(&form)
+            .send()
+            .await
+            .map_err(|err| Error::RequestFail(err.to_string()))?;
+
+        if res.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::NonExistDocument);
+        }
+
+        if res.status() == reqwest::StatusCode::SERVICE_UNAVAILABLE {
+            return Err(Error::TranslationNotDone);
+        }
+
+        if !res.status().is_success() {
+            return Self::extract_deepl_error(res).await;
+        }
+
+        let write_to = if let Some(dir) = output_dir {
+            PathBuf::from(dir)
+        } else {
+            PathBuf::from(".")
+        };
+        let write_to = write_to.join(filename);
+
+        for chunk in (res.chunk().await).into_iter().flatten() {
+            tokio::fs::write(&write_to, &chunk).await.map_err(|err| {
+                Error::WriteFileError(format!("fail to download document: {err}"))
+            })?;
+        }
+
+        Ok(write_to.to_str().unwrap().to_string())
+    }
 }
 
 #[tokio::test]
@@ -467,10 +521,41 @@ async fn test_usage() {
 async fn test_upload_document() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
     let api = DeepLApi::new(&key, false);
+
+    let raw_text = "Doubt thou the stars are fire. \
+    Doubt that the sun doth move. \
+    Doubt truth to be a liar. \
+    But never doubt my love.";
+
+    tokio::fs::write("./test.txt", &raw_text).await.unwrap();
+
     let upload_option = UploadDocumentProp::builder()
-        .target_lang(Lang::EN_US)
+        .target_lang(Lang::ZH)
         .file_path("./test.txt")
         .build();
     let response = api.upload_document(upload_option).await.unwrap();
-    let status = api.check_document_status(&response).await.unwrap();
+    let mut status = api.check_document_status(&response).await.unwrap();
+
+    // wait for translation
+    loop {
+        if status.status.is_done() {
+            break;
+        }
+        if let Some(msg) = status.error_message {
+            println!("{}", msg);
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        status = api.check_document_status(&response).await.unwrap();
+        dbg!(&status);
+    }
+
+    let path = api
+        .download_document(&response, "test_translated.txt", None)
+        .await
+        .unwrap();
+
+    let content = tokio::fs::read_to_string(path).await.unwrap();
+    let expect = "怀疑你的星星是火。怀疑太阳在动。怀疑真理是个骗子。但永远不要怀疑我的爱。";
+    assert_eq!(content, expect);
 }
