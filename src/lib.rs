@@ -128,29 +128,43 @@ impl AsRef<str> for Formality {
 pub struct DocumentUploadResp {
     /// A unique ID assigned to the uploaded document and the translation process.
     /// Must be used when referring to this particular document in subsequent API requests.
-    document_id: String,
+    pub document_id: String,
     /// A unique key that is used to encrypt the uploaded document as well as the resulting
     /// translation on the server side. Must be provided with every subsequent API request
     /// regarding this particular document.
-    document_key: String,
+    pub document_key: String,
 }
 
 /// Response from api/v2/document/$ID
 #[derive(Deserialize)]
 pub struct DocumentStatusResp {
-    document_id: String,
-    status: DocumentTranslateStatus,
-    seconds_remaining: Option<u64>,
-    billed_characters: u64,
-    error_message: Option<String>,
+    /// A unique ID assigned to the uploaded document and the requested translation process.
+    /// The same ID that was used when requesting the translation status.
+    pub document_id: String,
+    /// A short description of the state the document translation process is currently in.
+    /// See [`DocumentTranslateStatus`] for more.
+    pub status: DocumentTranslateStatus,
+    /// Estimated number of seconds until the translation is done.
+    /// This parameter is only included while status is "translating".
+    pub seconds_remaining: Option<u64>,
+    /// The number of characters billed to your account.
+    pub billed_characters: u64,
+    /// A short description of the error, if available. Note that the content is subject to change.
+    /// This parameter may be included if an error occurred during translation.
+    pub error_message: Option<String>,
 }
 
+/// Possible value of the document translate status
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DocumentTranslateStatus {
+    /// The translation job is waiting in line to be processed
     Queued,
+    /// The translation is currently ongoing
     Translating,
+    /// The translation is done and the translated document is ready for download
     Done,
+    /// An irrecoverable error occurred while translating the document
     Error,
 }
 
