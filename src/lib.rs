@@ -294,7 +294,7 @@ impl DeepLApi {
     pub async fn check_document_status(
         &self,
         ident: &DocumentUploadResp,
-    ) -> Result<DocumentTranslateStatus> {
+    ) -> Result<DocumentStatusResp> {
         let form = [("document_key", ident.document_key.as_str())];
         let url = self
             .endpoint
@@ -310,7 +310,7 @@ impl DeepLApi {
             .await
             .map_err(|err| Error::InvalidReponse(format!("response is not valid: {err}")))?;
 
-        let status: DocumentTranslateStatus = serde_json::from_slice(&res)
+        let status: DocumentStatusResp = serde_json::from_slice(&res)
             .map_err(|err| Error::InvalidReponse(format!("response is not JSON: {err}")))?;
 
         Ok(status)
