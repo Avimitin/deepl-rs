@@ -236,7 +236,7 @@ pub struct DocumentStatusResp {
 }
 
 /// Possible value of the document translate status
-#[derive(Deserialize)]
+#[derive(Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum DocumentTranslateStatus {
     /// The translation job is waiting in line to be processed
@@ -247,6 +247,12 @@ pub enum DocumentTranslateStatus {
     Done,
     /// An irrecoverable error occurred while translating the document
     Error,
+}
+
+impl DocumentTranslateStatus {
+    pub fn is_done(&self) -> bool {
+        self == &Self::Done
+    }
 }
 
 /// A struct that contains necessary data
