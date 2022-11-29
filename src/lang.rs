@@ -1,4 +1,4 @@
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -11,7 +11,8 @@ type Result<T, E = LangConvertError> = core::result::Result<T, E>;
 
 /// Available language code for source and target text
 #[allow(non_camel_case_types)]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "SCREAMING-KEBAB-CASE")]
 pub enum Lang {
     BG,
     CS,
@@ -181,5 +182,11 @@ impl AsRef<str> for Lang {
             Self::UK => "UK",
             Self::ZH => "ZH",
         }
+    }
+}
+
+impl ToString for Lang {
+    fn to_string(&self) -> String {
+        self.as_ref().to_string()
     }
 }

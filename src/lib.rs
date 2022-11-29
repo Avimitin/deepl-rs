@@ -13,24 +13,22 @@ mod lang;
 
 pub use lang::Lang;
 
-use serde::Deserialize;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error;
-
-const TRANSLATE_TEXT_ENDPOINT: &str = "https://api-free.deepl.com/v2/translate";
-const USAGE_ENDPOINT: &str = "https://api-free.deepl.com/v2/usage";
+use typed_builder::TypedBuilder;
 
 /// Representing error during interaction with DeepL
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("invalid language code {0}")]
-    InvalidLang(String),
-
     #[error("invalid response: {0}")]
     InvalidReponse(String),
 
     #[error("request fail: {0}")]
     RequestFail(String),
+
+    #[error("fail to read file {0}: {1}")]
+    ReadFileError(String, tokio::io::Error),
 }
 
 type Result<T, E = Error> = core::result::Result<T, E>;
@@ -55,20 +53,110 @@ pub struct UsageReponse {
     pub character_limit: u64,
 }
 
+/// Configure how to upload the document to DeepL API.
+///
+/// # Example
+///
+/// ```rust
+/// let prop = UploadDocumentProp::builder()
+///     .source_lang(Lang::EN_GB)
+///     .target_lang(Lang::ZH)
+///     .file_path("/path/to/document.pdf")
+///     .filename("Foo Bar Baz")
+///     .formality(Formality::Default)
+///     .glossary_id("def3a26b-3e84-45b3-84ae-0c0aaf3525f7")
+///     .build();
+/// ...
+/// ```
+#[derive(TypedBuilder, Serialize)]
+#[builder(doc)]
+pub struct UploadDocumentProp {
+    /// Language of the text to be translated, optional
+    #[builder(default, setter(strip_option))]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_lang: Option<Lang>,
+    /// Language into which text should be translated, required
+    target_lang: Lang,
+    #[builder(default, setter(skip))]
+    file: Vec<u8>,
+    /// Path of the file to be translated, required
+    #[serde(skip)]
+    #[builder(setter(transform = |p: &str| PathBuf::from(p)))]
+    file_path: PathBuf,
+    /// Name of the file, optional
+    #[builder(default, setter(transform = |f: &str| Some(f.to_string())))]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    filename: Option<String>,
+    /// Sets whether the translated text should lean towards formal or informal language.
+    /// This feature currently only works for target languages DE (German), FR (French),
+    /// IT (Italian), ES (Spanish), NL (Dutch), PL (Polish), PT-PT, PT-BR (Portuguese)
+    /// and RU (Russian). Setting this parameter with a target language that does not
+    /// support formality will fail, unless one of the prefer_... options are used. optional
+    #[builder(default, setter(strip_option))]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    formality: Option<Formality>,
+    /// A unique ID assigned to your accounts glossary. optional
+    #[builder(default, setter(transform = |g: &str| Some(g.to_string())))]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    glossary_id: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Formality {
+    Default,
+    More,
+    Less,
+    PreferMore,
+    PreferLess,
+}
+
+impl AsRef<str> for Formality {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Default => "default",
+            Self::More => "more",
+            Self::Less => "less",
+            Self::PreferMore => "prefer_more",
+            Self::PreferLess => "prefer_less",
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DocumentUploadResp {
+    document_id: String,
+    document_key: String,
+}
+
 /// A struct that contains necessary data
 #[derive(Debug)]
 pub struct DeepLApi {
     client: reqwest::Client,
     key: String,
+    endpoint: reqwest::Url,
 }
 
 impl DeepLApi {
-    /// Create a new api instance with auth key
-    pub fn new(key: &str) -> Self {
+    /// Create a new api instance with auth key. If you are paid user, pass `true` into the second
+    /// parameter.
+    pub fn new(key: &str, is_pro: bool) -> Self {
+        let endpoint = if is_pro {
+            "https://api.deepl.com/v2/"
+        } else {
+            "https://api-free.deepl.com/v2/"
+        };
+
+        let endpoint = reqwest::Url::parse(endpoint).unwrap();
         Self {
+            endpoint,
             client: reqwest::Client::new(),
             key: format!("DeepL-Auth-Key {}", key),
         }
+    }
+
+    fn post(&self, url: reqwest::Url) -> reqwest::RequestBuilder {
+        self.client.post(url).header("Authorization", &self.key)
     }
 
     /// Translate the given text into expected target language. Source language is optional
@@ -100,10 +188,8 @@ impl DeepLApi {
         param.insert("target_lang", translate_into.as_ref());
 
         let response = self
-            .client
-            .post(TRANSLATE_TEXT_ENDPOINT)
+            .post(self.endpoint.join("translate").unwrap())
             .form(&param)
-            .header("Authorization", &self.key)
             .send()
             .await
             .map_err(|err| Error::RequestFail(err.to_string()))?;
@@ -122,9 +208,7 @@ impl DeepLApi {
     /// Get the current DeepL API usage
     pub async fn get_usage(&self) -> Result<UsageReponse> {
         let response = self
-            .client
-            .post(USAGE_ENDPOINT)
-            .header("Authorization", &self.key)
+            .post(self.endpoint.join("usage").unwrap())
             .send()
             .await
             .map_err(|err| Error::RequestFail(err.to_string()))?;
@@ -140,12 +224,39 @@ impl DeepLApi {
 
         Ok(usage)
     }
+
+    /// Upload document to DeepL server, returning a document ID and key which can be used
+    /// to query the translation status and to download the translated document once
+    /// translation is complete.
+    pub async fn upload_document(
+        &self,
+        mut prop: UploadDocumentProp,
+    ) -> Result<DocumentUploadResp> {
+        let file = tokio::fs::read(&prop.file_path).await.map_err(|err| {
+            Error::ReadFileError(prop.file_path.to_str().unwrap().to_string(), err)
+        })?;
+        prop.file = file;
+        let res = self
+            .post(self.endpoint.join("document").unwrap())
+            .form(&prop)
+            .send()
+            .await
+            .map_err(|err| Error::RequestFail(err.to_string()))?
+            .bytes()
+            .await
+            .map_err(|err| Error::InvalidReponse(format!("fail to decode response body: {err}")))?;
+
+        let upload_resp: DocumentUploadResp = serde_json::from_slice(&res)
+            .map_err(|err| Error::InvalidReponse(format!("response is not a valid: {err}")))?;
+
+        Ok(upload_resp)
+    }
 }
 
 #[tokio::test]
 async fn test_translator() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key);
+    let api = DeepLApi::new(&key, false);
     let response = api.translate("Hello World", None, Lang::ZH).await.unwrap();
 
     assert!(!response.translations.is_empty());
@@ -158,7 +269,7 @@ async fn test_translator() {
 #[tokio::test]
 async fn test_usage() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key);
+    let api = DeepLApi::new(&key, false);
     let response = api.get_usage().await.unwrap();
 
     assert_ne!(response.character_count, 0);
