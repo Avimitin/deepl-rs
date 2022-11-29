@@ -383,16 +383,45 @@ impl DeepLApi {
     /// use deepl::DeepLApi
     ///
     /// let api = DeepLApi::new(&key, false);
-    /// let prop = UploadDocumentProp::builder()
+    ///
+    /// // configure upload option
+    /// let upload_option = UploadDocumentProp::builder()
     ///     .source_lang(Lang::EN_GB)
     ///     .target_lang(Lang::ZH)
-    ///     .file_path("/path/to/document.docx")
-    ///     .filename("Foo Bar Baz")
+    ///     .file_path("./hamlet.txt")
+    ///     .filename("Hamlet.txt")
     ///     .formality(Formality::Default)
     ///     .glossary_id("def3a26b-3e84-45b3-84ae-0c0aaf3525f7")
     ///     .build();
-    /// let response = api.upload_document(prop).await.unwrap();
-    /// let status = api.check_document_status(&response).await.unwrap();
+    ///
+    /// // Upload the file to DeepL
+    /// let response = api.upload_document(upload_option).await.unwrap();
+    ///
+    /// // Query the translate status
+    /// let mut status = api.check_document_status(&response).await.unwrap();
+    ///
+    /// // wait for translation
+    /// loop {
+    ///     if status.status.is_done() {
+    ///         break;
+    ///     }
+    ///     if let Some(msg) = status.error_message {
+    ///         eprintln!("{}", msg);
+    ///         break;
+    ///     }
+    ///     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    ///     status = api.check_document_status(&response).await.unwrap();
+    /// }
+    ///
+    /// // After translation done, download it to "translated.txt"
+    /// let path = api
+    ///     .download_document(&response, "translated.txt", None)
+    ///     .await
+    ///     .unwrap();
+    ///
+    /// // See whats in it
+    /// let content = tokio::fs::read_to_string(path).await.unwrap();
+    /// // ...
     /// ```
     pub async fn upload_document(&self, prop: UploadDocumentProp) -> Result<DocumentUploadResp> {
         let form = prop.into_multipart_form().await?;
