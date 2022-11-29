@@ -328,11 +328,11 @@ impl DeepLApi {
             .await
             .map_err(|err| Error::RequestFail(err.to_string()))?;
 
-        let response = response
-            .bytes()
-            .await
-            .map_err(|err| Error::InvalidReponse(format!("decoding http body to byte: {err}")))?;
-        let response: DeepLApiResponse = serde_json::from_slice(&response).map_err(|err| {
+        if !response.status().is_success() {
+            return Self::extract_deepl_error(response).await;
+        }
+
+        let response: DeepLApiResponse = response.json().await.map_err(|err| {
             Error::InvalidReponse(format!("convert json bytes to Rust type: {err}"))
         })?;
 
@@ -358,16 +358,15 @@ impl DeepLApi {
             .await
             .map_err(|err| Error::RequestFail(err.to_string()))?;
 
-        let response = response
-            .bytes()
-            .await
-            .map_err(|err| Error::InvalidReponse(format!("decoding http body to byte: {err}")))?;
+        if !response.status().is_success() {
+            return Self::extract_deepl_error(response).await;
+        }
 
-        let usage: UsageReponse = serde_json::from_slice(&response).map_err(|err| {
+        let response: UsageReponse = response.json().await.map_err(|err| {
             Error::InvalidReponse(format!("convert json bytes to Rust type: {err}"))
         })?;
 
-        Ok(usage)
+        Ok(response)
     }
 
     /// Upload document to DeepL server, returning a document ID and key which can be used
@@ -375,8 +374,6 @@ impl DeepLApi {
     /// translation is complete.
     ///
     /// # Example
-    ///
-    /// * Translate Document
     ///
     /// ```rust
     /// use deepl::DeepLApi
@@ -393,30 +390,28 @@ impl DeepLApi {
     /// let response = api.upload_document(prop).await.unwrap();
     /// let status = api.check_document_status(&response).await.unwrap();
     /// ```
-    pub async fn upload_document(
-        &self,
-        mut prop: UploadDocumentProp,
-    ) -> Result<DocumentUploadResp> {
-        let file = tokio::fs::read(&prop.file_path).await.map_err(|err| {
-            Error::ReadFileError(prop.file_path.to_str().unwrap().to_string(), err)
-        })?;
-        prop.file = file;
+    pub async fn upload_document(&self, prop: UploadDocumentProp) -> Result<DocumentUploadResp> {
+        let form = prop.into_multipart_form().await?;
         let res = self
             .post(self.endpoint.join("document").unwrap())
-            .form(&prop)
+            .multipart(form)
             .send()
             .await
-            .map_err(|err| Error::RequestFail(err.to_string()))?
-            .bytes()
+            .map_err(|err| Error::RequestFail(format!("fail to upload file: {err}")))?;
+
+        if !res.status().is_success() {
+            return Self::extract_deepl_error(res).await;
+        }
+
+        let res: DocumentUploadResp = res
+            .json()
             .await
             .map_err(|err| Error::InvalidReponse(format!("fail to decode response body: {err}")))?;
 
-        let upload_resp: DocumentUploadResp = serde_json::from_slice(&res)
-            .map_err(|err| Error::InvalidReponse(format!("response is not a valid: {err}")))?;
-
-        Ok(upload_resp)
+        Ok(res)
     }
 
+    /// Check the status of document, returning [`DocumentStatusResp`] if success.
     pub async fn check_document_status(
         &self,
         ident: &DocumentUploadResp,
@@ -431,12 +426,15 @@ impl DeepLApi {
             .form(&form)
             .send()
             .await
-            .map_err(|err| Error::RequestFail(err.to_string()))?
-            .bytes()
-            .await
-            .map_err(|err| Error::InvalidReponse(format!("response is not valid: {err}")))?;
+            .map_err(|err| Error::RequestFail(err.to_string()))?;
 
-        let status: DocumentStatusResp = serde_json::from_slice(&res)
+        if !res.status().is_success() {
+            return Self::extract_deepl_error(res).await;
+        }
+
+        let status: DocumentStatusResp = res
+            .json()
+            .await
             .map_err(|err| Error::InvalidReponse(format!("response is not JSON: {err}")))?;
 
         Ok(status)
