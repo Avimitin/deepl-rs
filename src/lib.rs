@@ -123,10 +123,35 @@ impl AsRef<str> for Formality {
     }
 }
 
+/// Response from api/v2/document
 #[derive(Serialize, Deserialize)]
 pub struct DocumentUploadResp {
+    /// A unique ID assigned to the uploaded document and the translation process.
+    /// Must be used when referring to this particular document in subsequent API requests.
     document_id: String,
+    /// A unique key that is used to encrypt the uploaded document as well as the resulting
+    /// translation on the server side. Must be provided with every subsequent API request
+    /// regarding this particular document.
     document_key: String,
+}
+
+/// Response from api/v2/document/$ID
+#[derive(Deserialize)]
+pub struct DocumentStatusResp {
+    document_id: String,
+    status: DocumentTranslateStatus,
+    seconds_remaining: Option<u64>,
+    billed_characters: u64,
+    error_message: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DocumentTranslateStatus {
+    Queued,
+    Translating,
+    Done,
+    Error,
 }
 
 /// A struct that contains necessary data
@@ -251,6 +276,31 @@ impl DeepLApi {
 
         Ok(upload_resp)
     }
+
+    pub async fn check_document_status(
+        &self,
+        ident: &DocumentUploadResp,
+    ) -> Result<DocumentTranslateStatus> {
+        let form = [("document_key", ident.document_key.as_str())];
+        let url = self
+            .endpoint
+            .join(&format!("document/{}", ident.document_id))
+            .unwrap();
+        let res = self
+            .post(url)
+            .form(&form)
+            .send()
+            .await
+            .map_err(|err| Error::RequestFail(err.to_string()))?
+            .bytes()
+            .await
+            .map_err(|err| Error::InvalidReponse(format!("response is not valid: {err}")))?;
+
+        let status: DocumentTranslateStatus = serde_json::from_slice(&res)
+            .map_err(|err| Error::InvalidReponse(format!("response is not JSON: {err}")))?;
+
+        Ok(status)
+    }
 }
 
 #[tokio::test]
@@ -273,4 +323,16 @@ async fn test_usage() {
     let response = api.get_usage().await.unwrap();
 
     assert_ne!(response.character_count, 0);
+}
+
+#[tokio::test]
+async fn test_upload_document() {
+    let key = std::env::var("DEEPL_API_KEY").unwrap();
+    let api = DeepLApi::new(&key, false);
+    let upload_option = UploadDocumentProp::builder()
+        .target_lang(Lang::EN_US)
+        .file_path("./test.txt")
+        .build();
+    let response = api.upload_document(upload_option).await.unwrap();
+    let status = api.check_document_status(&response).await.unwrap();
 }
