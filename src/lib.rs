@@ -198,6 +198,12 @@ impl AsRef<str> for Formality {
     }
 }
 
+impl ToString for Formality {
+    fn to_string(&self) -> String {
+        self.as_ref().to_string()
+    }
+}
+
 /// Response from api/v2/document
 #[derive(Serialize, Deserialize)]
 pub struct DocumentUploadResp {
