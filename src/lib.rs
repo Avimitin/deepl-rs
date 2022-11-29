@@ -46,6 +46,23 @@ pub enum Error {
 
     #[error("fail to read file {0}: {1}")]
     ReadFileError(String, tokio::io::Error),
+
+    #[error(
+        "trying to download a document using a non-existing document ID or the wrong document key"
+    )]
+    NonExistDocument,
+
+    #[error("tries to download a translated document that is currently being processed and is not yet ready for download")]
+    TranslationNotDone,
+
+    #[error("fail to write file: {0}")]
+    WriteFileError(String),
+}
+
+// detail message of the API error
+#[derive(Deserialize)]
+struct DeeplErrorResp {
+    message: String,
 }
 
 type Result<T, E = Error> = core::result::Result<T, E>;
@@ -213,6 +230,14 @@ impl DeepLApi {
 
     fn post(&self, url: reqwest::Url) -> reqwest::RequestBuilder {
         self.client.post(url).header("Authorization", &self.key)
+    }
+
+    async fn extract_deepl_error<T>(res: reqwest::Response) -> Result<T> {
+        let resp = res
+            .json::<DeeplErrorResp>()
+            .await
+            .map_err(|err| Error::InvalidReponse(format!("invalid error response: {err}")))?;
+        Err(Error::RequestFail(resp.message))
     }
 
     /// Translate the given text into expected target language. Source language is optional
