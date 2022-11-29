@@ -1,10 +1,10 @@
 [package]
 name = "deepl"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 authors = ["Avimitin <avimitin@gmail.com>"]
 description = "A Rust implementation of the DeepL API"
-documentation = "https://docs.rs/puball"
+documentation = "https://docs.rs/deepl"
 keywords = ["translate", "deepl", "api"]
 license = "Apache-2.0"
 readme = "README.md"
