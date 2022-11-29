@@ -102,24 +102,19 @@ pub struct UsageReponse {
 ///     .build();
 /// ...
 /// ```
-#[derive(TypedBuilder, Serialize)]
+#[derive(TypedBuilder)]
 #[builder(doc)]
 pub struct UploadDocumentProp {
     /// Language of the text to be translated, optional
     #[builder(default, setter(strip_option))]
-    #[serde(skip_serializing_if = "Option::is_none")]
     source_lang: Option<Lang>,
     /// Language into which text should be translated, required
     target_lang: Lang,
-    #[builder(default, setter(skip))]
-    file: Vec<u8>,
     /// Path of the file to be translated, required
-    #[serde(skip)]
     #[builder(setter(transform = |p: &str| PathBuf::from(p)))]
     file_path: PathBuf,
     /// Name of the file, optional
     #[builder(default, setter(transform = |f: &str| Some(f.to_string())))]
-    #[serde(skip_serializing_if = "Option::is_none")]
     filename: Option<String>,
     /// Sets whether the translated text should lean towards formal or informal language.
     /// This feature currently only works for target languages DE (German), FR (French),
@@ -127,12 +122,58 @@ pub struct UploadDocumentProp {
     /// and RU (Russian). Setting this parameter with a target language that does not
     /// support formality will fail, unless one of the prefer_... options are used. optional
     #[builder(default, setter(strip_option))]
-    #[serde(skip_serializing_if = "Option::is_none")]
     formality: Option<Formality>,
     /// A unique ID assigned to your accounts glossary. optional
     #[builder(default, setter(transform = |g: &str| Some(g.to_string())))]
-    #[serde(skip_serializing_if = "Option::is_none")]
     glossary_id: Option<String>,
+}
+
+impl UploadDocumentProp {
+    async fn into_multipart_form(self) -> Result<reqwest::multipart::Form> {
+        let Self {
+            source_lang,
+            target_lang,
+            file_path,
+            filename,
+            formality,
+            glossary_id,
+        } = self;
+
+        let mut form = reqwest::multipart::Form::new();
+
+        // SET source_lang
+        if let Some(lang) = source_lang {
+            form = form.text("source_lang", lang.to_string());
+        }
+
+        // SET target_lang
+        form = form.text("target_lang", target_lang.to_string());
+
+        // SET file && filename
+        let file = tokio::fs::read(&file_path)
+            .await
+            .map_err(|err| Error::ReadFileError(file_path.to_str().unwrap().to_string(), err))?;
+
+        let mut part = reqwest::multipart::Part::bytes(file);
+        if let Some(filename) = filename {
+            part = part.file_name(filename.to_string());
+            form = form.text("filename", filename);
+        }
+
+        form = form.part("file", part);
+
+        // SET formality
+        if let Some(formal) = formality {
+            form = form.text("formality", formal.to_string());
+        }
+
+        // SET glossary
+        if let Some(id) = glossary_id {
+            form = form.text("glossary_id", id);
+        }
+
+        Ok(form)
+    }
 }
 
 #[derive(Serialize)]
