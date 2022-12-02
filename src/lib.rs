@@ -31,7 +31,10 @@ mod lang;
 pub use lang::Lang;
 
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use tokio_stream::StreamExt;
@@ -106,14 +109,14 @@ pub struct UsageReponse {
 /// ```
 #[derive(TypedBuilder)]
 #[builder(doc)]
-pub struct UploadDocumentProp {
+pub struct UploadDocumentProp<'fp> {
     /// Language of the text to be translated, optional
     #[builder(default, setter(strip_option))]
     source_lang: Option<Lang>,
     /// Language into which text should be translated, required
     target_lang: Lang,
     /// Path of the file to be translated, required
-    file_path: PathBuf,
+    file_path: &'fp Path,
     /// Name of the file, optional
     #[builder(default, setter(transform = |f: &str| Some(f.to_string())))]
     filename: Option<String>,
@@ -129,7 +132,7 @@ pub struct UploadDocumentProp {
     glossary_id: Option<String>,
 }
 
-impl UploadDocumentProp {
+impl<'fp> UploadDocumentProp<'fp> {
     async fn into_multipart_form(self) -> Result<reqwest::multipart::Form> {
         let Self {
             source_lang,
@@ -424,7 +427,10 @@ impl DeepLApi {
     /// let content = tokio::fs::read_to_string(path).await.unwrap();
     /// // ...
     /// ```
-    pub async fn upload_document(&self, prop: UploadDocumentProp) -> Result<DocumentUploadResp> {
+    pub async fn upload_document<'fp>(
+        &self,
+        prop: UploadDocumentProp<'fp>,
+    ) -> Result<DocumentUploadResp> {
         let form = prop.into_multipart_form().await?;
         let res = self
             .post(self.endpoint.join("document").unwrap())
@@ -474,7 +480,7 @@ impl DeepLApi {
         Ok(status)
     }
 
-    async fn open_file_to_write(p: &PathBuf) -> Result<tokio::fs::File> {
+    async fn open_file_to_write(p: &Path) -> Result<tokio::fs::File> {
         let open_result = tokio::fs::OpenOptions::new()
             .append(true)
             .create_new(true)
@@ -514,16 +520,15 @@ impl DeepLApi {
         Ok(open_result.unwrap())
     }
 
-    /// Download the possibly translated document. Downloaded document will store to current
-    /// directory, or specify by the optional `output` parameter.
+    /// Download the possibly translated document. Downloaded document will store to the specific
+    /// `output` path.
     ///
     /// Return downloaded file's path if success
-    pub async fn download_document(
+    pub async fn download_document<O: AsRef<Path>>(
         &self,
         ident: &DocumentUploadResp,
-        filename: &str,
-        output_dir: Option<&str>,
-    ) -> Result<String> {
+        output: O,
+    ) -> Result<PathBuf> {
         let url = self
             .endpoint
             .join(&format!("document/{}/result", ident.document_id))
@@ -548,14 +553,7 @@ impl DeepLApi {
             return Self::extract_deepl_error(res).await;
         }
 
-        let write_to = if let Some(dir) = output_dir {
-            PathBuf::from(dir)
-        } else {
-            PathBuf::from(".")
-        };
-        let write_to = write_to.join(filename);
-
-        let mut file = Self::open_file_to_write(&write_to).await?;
+        let mut file = Self::open_file_to_write(output.as_ref()).await?;
 
         let mut stream = res.bytes_stream();
         while let Some(chunk) = stream.next().await {
@@ -570,7 +568,7 @@ impl DeepLApi {
             })?;
         }
 
-        Ok(write_to.to_str().unwrap().to_string())
+        Ok(output.as_ref().to_path_buf())
     }
 }
 
@@ -608,9 +606,10 @@ async fn test_upload_document() {
 
     tokio::fs::write("./test.txt", &raw_text).await.unwrap();
 
+    let test_file = PathBuf::from("./test.txt");
     let upload_option = UploadDocumentProp::builder()
         .target_lang(Lang::ZH)
-        .file_path(PathBuf::from("./test.txt"))
+        .file_path(&test_file)
         .build();
     let response = api.upload_document(upload_option).await.unwrap();
     let mut status = api.check_document_status(&response).await.unwrap();
@@ -630,7 +629,7 @@ async fn test_upload_document() {
     }
 
     let path = api
-        .download_document(&response, "test_translated.txt", None)
+        .download_document(&response, "test_translated.txt")
         .await
         .unwrap();
 
@@ -645,9 +644,10 @@ async fn test_upload_docx() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
     let api = DeepLApi::new(&key, false);
 
+    let test_file = PathBuf::from("./asserts/example.docx");
     let upload_option = UploadDocumentProp::builder()
         .target_lang(Lang::ZH)
-        .file_path(PathBuf::from("./asserts/example.docx"))
+        .file_path(&test_file)
         .build();
     let response = api.upload_document(upload_option).await.unwrap();
     let mut status = api.check_document_status(&response).await.unwrap();
@@ -667,7 +667,7 @@ async fn test_upload_docx() {
     }
 
     let path = api
-        .download_document(&response, "translated.docx", None)
+        .download_document(&response, "translated.docx")
         .await
         .unwrap();
     let get = tokio::fs::read(&path).await.unwrap();
