@@ -33,6 +33,8 @@ pub use lang::Lang;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error;
+use tokio::io::AsyncWriteExt;
+use tokio_stream::StreamExt;
 use typed_builder::TypedBuilder;
 
 /// Representing error during interaction with DeepL
@@ -472,6 +474,46 @@ impl DeepLApi {
         Ok(status)
     }
 
+    async fn open_file_to_write(p: &PathBuf) -> Result<tokio::fs::File> {
+        let open_result = tokio::fs::OpenOptions::new()
+            .append(true)
+            .create_new(true)
+            .open(p)
+            .await;
+
+        if let Ok(file) = open_result {
+            return Ok(file);
+        }
+
+        let err = open_result.unwrap_err();
+        if err.kind() != std::io::ErrorKind::AlreadyExists {
+            return Err(Error::WriteFileError(format!(
+                "Fail to open file {p:?}: {err}"
+            )));
+        }
+
+        tokio::fs::remove_file(p).await.map_err(|err| {
+            Error::WriteFileError(format!(
+                "There was already a file there and it is not deletable: {err}"
+            ))
+        })?;
+        dbg!("Detect exist, removed");
+
+        let open_result = tokio::fs::OpenOptions::new()
+            .append(true)
+            .create_new(true)
+            .open(p)
+            .await;
+
+        if let Err(err) = open_result {
+            return Err(Error::WriteFileError(format!(
+                "Fail to open file for download document, even after retry: {err}"
+            )));
+        }
+
+        Ok(open_result.unwrap())
+    }
+
     /// Download the possibly translated document. Downloaded document will store to current
     /// directory, or specify by the optional `output` parameter.
     ///
@@ -487,7 +529,7 @@ impl DeepLApi {
             .join(&format!("document/{}/result", ident.document_id))
             .unwrap();
         let form = [("document_key", ident.document_key.as_str())];
-        let mut res = self
+        let res = self
             .post(url)
             .form(&form)
             .send()
@@ -513,9 +555,18 @@ impl DeepLApi {
         };
         let write_to = write_to.join(filename);
 
-        for chunk in (res.chunk().await).into_iter().flatten() {
-            tokio::fs::write(&write_to, &chunk).await.map_err(|err| {
-                Error::WriteFileError(format!("fail to download document: {err}"))
+        let mut file = Self::open_file_to_write(&write_to).await?;
+
+        let mut stream = res.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|err| {
+                Error::WriteFileError(format!("fail to download translated document: {err}"))
+            })?;
+            file.write_all(&chunk).await.map_err(|err| {
+                Error::WriteFileError(format!("fail to save the translated document: {err}"))
+            })?;
+            file.sync_all().await.map_err(|err| {
+                Error::WriteFileError(format!("fail to save the downloaded content: {err}"))
             })?;
         }
 
@@ -586,4 +637,39 @@ async fn test_upload_document() {
     let content = tokio::fs::read_to_string(path).await.unwrap();
     let expect = "怀疑你的星星是火。怀疑太阳在动。怀疑真理是个骗子。但永远不要怀疑我的爱。";
     assert_eq!(content, expect);
+}
+
+#[tokio::test]
+async fn test_upload_docx() {
+    let key = std::env::var("DEEPL_API_KEY").unwrap();
+    let api = DeepLApi::new(&key, false);
+
+    let upload_option = UploadDocumentProp::builder()
+        .target_lang(Lang::ZH)
+        .file_path(PathBuf::from("./asserts/example.docx"))
+        .build();
+    let response = api.upload_document(upload_option).await.unwrap();
+    let mut status = api.check_document_status(&response).await.unwrap();
+
+    // wait for translation
+    loop {
+        if status.status.is_done() {
+            break;
+        }
+        if let Some(msg) = status.error_message {
+            println!("{}", msg);
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        status = api.check_document_status(&response).await.unwrap();
+        dbg!(&status);
+    }
+
+    let path = api
+        .download_document(&response, "translated.docx", None)
+        .await
+        .unwrap();
+    let get = tokio::fs::read(&path).await.unwrap();
+    let want = tokio::fs::read("./asserts/expected.docx").await.unwrap();
+    assert_eq!(get, want);
 }
