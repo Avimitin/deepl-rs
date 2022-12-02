@@ -641,6 +641,7 @@ async fn test_upload_document() {
 
 #[tokio::test]
 async fn test_upload_docx() {
+    use pretty_assertions::assert_eq;
     let key = std::env::var("DEEPL_API_KEY").unwrap();
     let api = DeepLApi::new(&key, false);
 
