@@ -111,7 +111,6 @@ pub struct UploadDocumentProp {
     /// Language into which text should be translated, required
     target_lang: Lang,
     /// Path of the file to be translated, required
-    #[builder(setter(transform = |p: &str| PathBuf::from(p)))]
     file_path: PathBuf,
     /// Name of the file, optional
     #[builder(default, setter(transform = |f: &str| Some(f.to_string())))]
@@ -560,7 +559,7 @@ async fn test_upload_document() {
 
     let upload_option = UploadDocumentProp::builder()
         .target_lang(Lang::ZH)
-        .file_path("./test.txt")
+        .file_path(PathBuf::from("./test.txt"))
         .build();
     let response = api.upload_document(upload_option).await.unwrap();
     let mut status = api.check_document_status(&response).await.unwrap();
