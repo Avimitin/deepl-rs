@@ -92,6 +92,58 @@ pub struct UsageReponse {
     pub character_limit: u64,
 }
 
+/// Configure the advanced text translation features of DeepL.
+///
+/// # Example
+///
+/// ```rust
+/// let settings = TranslateTextProp::builder()
+///     .source_lang(Lang::EN)
+///     .target_lang(Lang::DE)
+///     .glossary_id("def3a26b-3e84-45b3-84ae-0c0aaf3525f7")
+///     .tag_handling(TagHandling::Xml)
+///     .non_splitting_tags(vec!["br".to_owned()])
+///     .splitting_tags(vec!["i".to_owned()])
+///     .ignore_tags(vec!["keep".to_owned()])
+///     .build();
+/// ...
+/// ```
+#[derive(TypedBuilder)]
+#[builder(doc)]
+pub struct TranslateTextProp {
+    /// Language of the text to be translated, optional
+    #[builder(default, setter(strip_option))]
+    source_lang: Option<Lang>,
+    /// Language into which text should be translated, required
+    target_lang: Lang,
+    /// Sets whether the translation engine should first split the input into sentences
+    #[builder(default, setter(strip_option))]
+    split_sentences: Option<SplitSentences>,
+    /// Whether the translation engine should respect the original formatting
+    #[builder(default, setter(strip_option))]
+    preserve_formatting: Option<PreserveFormatting>,
+    /// A unique ID assigned to your accounts glossary. optional
+    #[builder(default, setter(transform = |g: &str| Some(g.to_string())))]
+    glossary_id: Option<String>,
+    /// Sets how DeepL should handle markup tags
+    #[builder(default, setter(strip_option))]
+    tag_handling: Option<TagHandling>,
+    /// List of XML tags which never split sentences
+    /// see: <https://www.deepl.com/docs-api/xml/restricting-splitting/>
+    /// This requires tag_handling == TagHandling::Xml
+    #[builder(default = Vec::new())]
+    non_splitting_tags: Vec<String>,
+    /// List of XML tags which always cause splits
+    /// see: <https://www.deepl.com/docs-api/xml/restricting-splitting/>
+    /// This requires tag_handling == TagHandling::Xml
+    #[builder(default = Vec::new())]
+    splitting_tags: Vec<String>,
+    /// List of XML tags that indicate text not to be translated
+    /// This requires tag_handling == TagHandling::Xml
+    #[builder(default = Vec::new())]
+    ignore_tags: Vec<String>,
+}
+
 /// Configure how to upload the document to DeepL API.
 ///
 /// # Example
@@ -181,6 +233,74 @@ impl<'fp> UploadDocumentProp<'fp> {
         }
 
         Ok(form)
+    }
+}
+
+///
+/// Sets whether the translation engine should respect the original formatting,
+/// even if it would usually correct some aspects.
+/// The formatting aspects affected by this setting include:
+/// - Punctuation at the beginning and end of the sentence
+/// - Upper/lower case at the beginning of the sentence
+///
+pub enum PreserveFormatting {
+    Preserve,
+    DontPreserve,
+}
+
+impl AsRef<str> for PreserveFormatting {
+    fn as_ref(&self) -> &str {
+        match self {
+            PreserveFormatting::Preserve => "1",
+            PreserveFormatting::DontPreserve => "0",
+        }
+    }
+}
+
+///
+/// Sets whether the translation engine should first split the input into sentences
+///
+/// For applications that send one sentence per text parameter, it is advisable to set this to `None`,
+/// in order to prevent the engine from splitting the sentence unintentionally.
+/// Please note that newlines will split sentences. You should therefore clean files to avoid breaking sentences or set this to `PunctuationOnly`.
+///
+pub enum SplitSentences {
+    /// Perform no splitting at all, whole input is treated as one sentence
+    None,
+    /// Split on punctuation and on newlines (default)
+    PunctuationAndNewlines,
+    /// Split on punctuation only, ignoring newlines
+    PunctuationOnly,
+}
+
+impl AsRef<str> for SplitSentences {
+    fn as_ref(&self) -> &str {
+        match self {
+            SplitSentences::None => "0",
+            SplitSentences::PunctuationAndNewlines => "1",
+            SplitSentences::PunctuationOnly => "nonewlines",
+        }
+    }
+}
+
+///
+/// Sets which kind of tags should be handled. Options currently available
+///
+pub enum TagHandling {
+    /// Enable XML tag handling
+    /// see: <https://www.deepl.com/docs-api/xml>
+    Xml,
+    /// Enable HTML tag handling
+    /// see: <https://www.deepl.com/docs-api/html>
+    Html,
+}
+
+impl AsRef<str> for TagHandling {
+    fn as_ref(&self) -> &str {
+        match self {
+            TagHandling::Xml => "xml",
+            TagHandling::Html => "html",
+        }
     }
 }
 
@@ -322,12 +442,75 @@ impl DeepLApi {
         translate_from: Option<Lang>,
         translate_into: Lang,
     ) -> Result<DeepLApiResponse> {
+        let settings = TranslateTextProp::builder().target_lang(translate_into);
+        let settings = match translate_from {
+            Some(sl) => settings.source_lang(sl).build(),
+            None => settings.build(),
+        };
+
+        self.translate_advanced(text, &settings).await
+    }
+
+    /// Translate the given text using the given text translation settings.
+    ///
+    /// # Error
+    ///
+    /// Return error if the http request fail
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use deepl::{DeepLApi, Lang};
+    ///
+    /// let api = DeepLApi::new("YOUR AUTH KEY");
+    /// let settings = TranslateTextProp::builder()
+    ///     .source_lang(Lang::EN)
+    ///     .target_lang(Lang::DE)
+    ///     .ignore_tags(vec!["keep".to_owned()])
+    ///     .tag_handling(TagHandling::Xml)
+    ///     .build();
+    /// let str = "Hello World <keep>This will stay exactly the way it was</keep>";
+    /// let response = api.translate_advanced(str, &settings).await.unwrap();
+    ///
+    /// let translated_results = response.translations;
+    /// let should = "Hallo Welt <keep>This will stay exactly the way it was</keep>";
+    /// assert_eq!(translated_results[0].text, should);
+    /// ```
+    pub async fn translate_advanced(
+        &self,
+        text: &str,
+        settings: &TranslateTextProp,
+    ) -> Result<DeepLApiResponse> {
         let mut param = HashMap::new();
         param.insert("text", text);
-        if let Some(ref la) = translate_from {
+        if let Some(ref la) = settings.source_lang {
             param.insert("source_lang", la.as_ref());
         }
-        param.insert("target_lang", translate_into.as_ref());
+        param.insert("target_lang", settings.target_lang.as_ref());
+        if let Some(ref ss) = settings.split_sentences {
+            param.insert("split_sentences", ss.as_ref());
+        }
+        if let Some(ref pf) = settings.preserve_formatting {
+            param.insert("preserve_formatting", pf.as_ref());
+        }
+        if let Some(ref id) = settings.glossary_id {
+            param.insert("glossary_id", id);
+        }
+        if let Some(ref th) = settings.tag_handling {
+            param.insert("tag_handling", th.as_ref());
+        }
+        let non_splitting_tags = settings.non_splitting_tags.join(",");
+        if !non_splitting_tags.is_empty() {
+            param.insert("non_splitting_tags", &non_splitting_tags);
+        }
+        let splitting_tags = settings.splitting_tags.join(",");
+        if !splitting_tags.is_empty() {
+            param.insert("splitting_tags", &splitting_tags);
+        }
+        let ignore_tags = settings.ignore_tags.join(",");
+        if !ignore_tags.is_empty() {
+            param.insert("ignore_tags", &ignore_tags);
+        }
 
         let response = self
             .post(self.endpoint.join("translate").unwrap())
@@ -582,6 +765,56 @@ async fn test_translator() {
 
     let translated_results = response.translations;
     assert_eq!(translated_results[0].text, "你好，世界");
+    assert_eq!(translated_results[0].detected_source_language, Lang::EN);
+}
+
+#[tokio::test]
+async fn test_advanced_translator_xml_ignore_tags() {
+    let key = std::env::var("DEEPL_API_KEY").unwrap();
+    let api = DeepLApi::new(&key, false);
+
+    let settings = TranslateTextProp::builder()
+        .source_lang(Lang::EN)
+        .target_lang(Lang::DE)
+        .ignore_tags(vec!["keep".to_owned()])
+        .tag_handling(TagHandling::Xml)
+        .build();
+    let response = api.translate_advanced("Hello World <keep additionalarg=\"test0\">This will stay exactly the way it was</keep>", &settings).await.unwrap();
+
+    assert!(!response.translations.is_empty());
+
+    let translated_results = response.translations;
+    assert_eq!(
+        translated_results[0].text,
+        "Hallo Welt <keep additionalarg=\"test0\">This will stay exactly the way it was</keep>"
+    );
+    assert_eq!(translated_results[0].detected_source_language, Lang::EN);
+}
+
+#[tokio::test]
+async fn test_advanced_translator_html() {
+    let key = std::env::var("DEEPL_API_KEY").unwrap();
+    let api = DeepLApi::new(&key, false);
+
+    let settings = TranslateTextProp::builder()
+        .target_lang(Lang::DE)
+        .tag_handling(TagHandling::Html)
+        .build();
+    let response = api
+        .translate_advanced(
+            "Hello World <keep translate=\"no\">This will stay exactly the way it was</keep>",
+            &settings,
+        )
+        .await
+        .unwrap();
+
+    assert!(!response.translations.is_empty());
+
+    let translated_results = response.translations;
+    assert_eq!(
+        translated_results[0].text,
+        "Hallo Welt <keep translate=\"no\">This will stay exactly the way it was</keep>"
+    );
     assert_eq!(translated_results[0].detected_source_language, Lang::EN);
 }
 
