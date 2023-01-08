@@ -128,7 +128,7 @@ pub struct TranslateTextProp {
     #[builder(default, setter(strip_option, doc = "Whether the translation engine should respect the original formatting"))]
     preserve_formatting: Option<PreserveFormatting>,
     /// A unique ID assigned to your accounts glossary. optional
-    #[builder(default, setter(transform = |g: &str| Some(g.to_string()), doc = "A unique ID assigned to your accounts glossary. optional"))]
+    #[builder(default, setter(transform = |g: impl ToString| Some(g.to_string()), doc = "A unique ID assigned to your accounts glossary. optional"))]
     glossary_id: Option<String>,
     /// Sets how DeepL should handle markup tags
     #[builder(default, setter(strip_option, doc = "Sets how DeepL should handle markup tags"))]
