@@ -767,16 +767,24 @@ impl DeepLApi {
         let mut file = Self::open_file_to_write(output.as_ref()).await?;
 
         let mut stream = res.bytes_stream();
+
+        #[inline]
+        fn mapper<E: std::error::Error>(s: &'static str) -> Box<dyn FnOnce(E) -> Error> {
+            Box::new(move |err: E| {
+                Error::WriteFileError(format!("{s}: {err}"))
+            })
+        }
+
         while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|err| {
-                Error::WriteFileError(format!("fail to download translated document: {err}"))
-            })?;
-            file.write_all(&chunk).await.map_err(|err| {
-                Error::WriteFileError(format!("fail to save the translated document: {err}"))
-            })?;
-            file.sync_all().await.map_err(|err| {
-                Error::WriteFileError(format!("fail to save the downloaded content: {err}"))
-            })?;
+            let chunk = chunk.map_err(
+                mapper("fail to download part of the document")
+            )?;
+            file.write_all(&chunk).await.map_err(
+                mapper("fail to write downloaded part into file")
+            )?;
+            file.sync_all().await.map_err(
+                mapper("fail to sync file content")
+            )?;
         }
 
         Ok(output.as_ref().to_path_buf())
