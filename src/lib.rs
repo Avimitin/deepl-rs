@@ -8,18 +8,19 @@
 //!
 //! # Usage
 //!
-//! * Basic Translation
-//!
 //! ```rust
-//! use deepl::DeepLApi
+//! let api = DeepLApi::new("Your DeepL Token", false);
+//! let prop = TranslateTextProp::builder().target_lang(Lang::ZH).build();
+//! let response = api.translate("Hello World", &prop).await.unwrap();
 //!
-//! let api = DeepLApi::new("Your DeepL Token", false); // set second param to true if you are pro user
-//! let response = api.translate("Hello World", None, Lang::ZH).await.unwrap();
+//! assert!(!response.translations.is_empty());
+//!
 //! let translated_results = response.translations;
-//!
 //! assert_eq!(translated_results[0].text, "你好，世界");
 //! assert_eq!(translated_results[0].detected_source_language, Lang::EN);
 //! ```
+//!
+//! See [`DeepLApi`] for detail usage.
 //!
 //! # License
 //!
