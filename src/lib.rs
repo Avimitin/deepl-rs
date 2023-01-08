@@ -110,38 +110,42 @@ pub struct UsageResponse {
 /// ...
 /// ```
 #[derive(TypedBuilder)]
-#[builder(doc)]
+#[builder(
+    builder_type_doc = "Builder for type [`TranslateTextProp`]",
+    builder_method_doc = "Create a build for type [`TranslateTextProp`]. All fields except `target_lang` are optional. See [`DeepLApi::translate()`] for more",
+)]
 pub struct TranslateTextProp {
     /// Language of the text to be translated, optional
-    #[builder(default, setter(strip_option))]
+    #[builder(default, setter(strip_option, doc = "Language of the text to be translated, optional"))]
     source_lang: Option<Lang>,
     /// Language into which text should be translated, required
+    #[builder(setter(doc = "Language into which text should be translated, required"))]
     target_lang: Lang,
     /// Sets whether the translation engine should first split the input into sentences
-    #[builder(default, setter(strip_option))]
+    #[builder(default, setter(strip_option, doc = "Sets whether the translation engine should first split the input into sentences"))]
     split_sentences: Option<SplitSentences>,
     /// Whether the translation engine should respect the original formatting
-    #[builder(default, setter(strip_option))]
+    #[builder(default, setter(strip_option, doc = "Whether the translation engine should respect the original formatting"))]
     preserve_formatting: Option<PreserveFormatting>,
     /// A unique ID assigned to your accounts glossary. optional
-    #[builder(default, setter(transform = |g: &str| Some(g.to_string())))]
+    #[builder(default, setter(transform = |g: &str| Some(g.to_string()), doc = "A unique ID assigned to your accounts glossary. optional"))]
     glossary_id: Option<String>,
     /// Sets how DeepL should handle markup tags
-    #[builder(default, setter(strip_option))]
+    #[builder(default, setter(strip_option, doc = "Sets how DeepL should handle markup tags"))]
     tag_handling: Option<TagHandling>,
     /// List of XML tags which never split sentences
     /// see: <https://www.deepl.com/docs-api/xml/restricting-splitting/>
     /// This requires tag_handling == TagHandling::Xml
-    #[builder(default = Vec::new())]
+    #[builder(default = Vec::new(), setter(doc = "List of XML tags which never split sentences"))]
     non_splitting_tags: Vec<String>,
     /// List of XML tags which always cause splits
     /// see: <https://www.deepl.com/docs-api/xml/restricting-splitting/>
     /// This requires tag_handling == TagHandling::Xml
-    #[builder(default = Vec::new())]
+    #[builder(default = Vec::new(), setter(doc = "List of XML tags which always cause splits"))]
     splitting_tags: Vec<String>,
     /// List of XML tags that indicate text not to be translated
     /// This requires tag_handling == TagHandling::Xml
-    #[builder(default = Vec::new())]
+    #[builder(default = Vec::new(), setter(doc = "List of XML tags that indicate text not to be translated"))]
     ignore_tags: Vec<String>,
 }
 
