@@ -395,22 +395,23 @@ impl DocumentTranslateStatus {
 /// let deepl = DeepLApi::new();
 ///
 /// // **OR** customize it
+/// let duration = std::time::Duration::from_secs(30);
+/// let client = reqwest::Client::builder().timeout(duration).build().unwrap();
 /// let deepl = DeepLApi::builder()
-///     .key("Your DeepL Key".to_string())                  // set the auth key
-///     .endpoint(true)                                     // use the pro api
-///     .client(reqwest::Client::builder()
-///         .timeout(std::time::Duration::from_secs(30))
-///         .build()
-///         .unwrap()
-///     )                                                   // use a http client with 30 secs timeout
-///     .build();
+///                 .key("Your DeepL Key")       // set the auth key
+///                 .endpoint(true)              // use the pro api
+///                 .client(client)              // use a http client with 30 secs timeout
+///                 .build();
 /// ```
 #[derive(Debug, TypedBuilder)]
 #[builder(builder_type_doc = "Builder for a completely customized API wrapper")]
 pub struct DeepLApi {
     #[builder(default, setter(doc = "Set a customized reqwest client"))]
     client: reqwest::Client,
-    #[builder(setter(doc = "Set the API auth token"))]
+    #[builder(setter(
+        doc = "Set the API auth token",
+        transform = |s: impl ToString| s.to_string(),
+    ))]
     key: String,
     #[builder(
         default = reqwest::Url::parse("https://api-free.deepl.com/v2/").unwrap(),
