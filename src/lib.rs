@@ -29,6 +29,7 @@
 mod lang;
 
 pub use lang::Lang;
+pub use reqwest;
 
 use serde::{Deserialize, Serialize};
 use std::{
@@ -383,11 +384,48 @@ impl DocumentTranslateStatus {
     }
 }
 
-/// A struct that contains necessary data
-#[derive(Debug)]
+/// A struct that contains necessary data. If you don't have any other requirement, you can called
+/// the `DeepLApi::new` function to create an instance. If you want to customize this wrapper, you
+/// can use the `DeepLApi::builder` function to set the fields.
+///
+/// # Example
+///
+/// ```
+/// // simple API creation
+/// let deepl = DeepLApi::new();
+///
+/// // **OR** customize it
+/// let deepl = DeepLApi::builder()
+///     .key("Your DeepL Key".to_string())                  // set the auth key
+///     .endpoint(true)                                     // use the pro api
+///     .client(reqwest::Client::builder()
+///         .timeout(std::time::Duration::from_secs(30))
+///         .build()
+///         .unwrap()
+///     )                                                   // use a http client with 30 secs timeout
+///     .build();
+/// ```
+#[derive(Debug, TypedBuilder)]
+#[builder(builder_type_doc = "Builder for a completely customized API wrapper")]
 pub struct DeepLApi {
+    #[builder(default, setter(doc = "Set a customized reqwest client"))]
     client: reqwest::Client,
+    #[builder(setter(doc = "Set the API auth token"))]
     key: String,
+    #[builder(
+        default = reqwest::Url::parse("https://api-free.deepl.com/v2/").unwrap(),
+        setter(
+            doc = "Set this field to true if you are paid user, default using api-free API",
+            transform = |pro: bool| {
+                let url = if pro {
+                    "https://api.deepl.com/v2/"
+                } else {
+                    "https://api-free.deepl.com/v2/"
+                };
+                reqwest::Url::parse(url).unwrap() 
+            }
+        )
+    )]
     endpoint: reqwest::Url,
 }
 
