@@ -460,36 +460,6 @@ impl DeepLApi {
         Err(Error::RequestFail(resp.message))
     }
 
-    /// Translate the given text into expected target language. Source language is optional
-    /// and can be determined by DeepL API.
-    ///
-    /// # Error
-    ///
-    /// Return error if the http request fail
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use deepl::{DeepLApi, Lang};
-    ///
-    /// let api = DeepLApi::new("YOUR AUTH KEY");
-    /// api.translate("Hello World", None, Lang::ZH).await.unwrap();
-    /// ```
-    pub async fn translate(
-        &self,
-        text: &str,
-        translate_from: Option<Lang>,
-        translate_into: Lang,
-    ) -> Result<DeepLApiResponse> {
-        let settings = TranslateTextProp::builder().target_lang(translate_into);
-        let settings = match translate_from {
-            Some(sl) => settings.source_lang(sl).build(),
-            None => settings.build(),
-        };
-
-        self.translate_advanced(text, &settings).await
-    }
-
     /// Translate the given text using the given text translation settings.
     ///
     /// # Error
@@ -497,6 +467,22 @@ impl DeepLApi {
     /// Return error if the http request fail
     ///
     /// # Example
+    ///
+    /// * Simple translation
+    ///
+    /// ```rust
+    /// use deepl::{DeepLApi, Lang};
+    ///
+    /// let api = DeepLApi::new("YOUR AUTH KEY");
+    ///
+    /// let prop = TranslateTextProp::builder()
+    ///                .target_lang(Lang::ZH)
+    ///                .build();
+    /// let response = api.translate("Hello World", &prop).await.unwrap();
+    /// assert!(!response.translations.is_empty());
+    /// ```
+    ///
+    /// * Translation with XML tag enabled
     ///
     /// ```rust
     /// use deepl::{DeepLApi, Lang};
@@ -515,7 +501,7 @@ impl DeepLApi {
     /// let should = "Hallo Welt <keep>This will stay exactly the way it was</keep>";
     /// assert_eq!(translated_results[0].text, should);
     /// ```
-    pub async fn translate_advanced(
+    pub async fn translate(
         &self,
         text: &str,
         settings: &TranslateTextProp,
@@ -797,7 +783,8 @@ impl DeepLApi {
 async fn test_translator() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
     let api = DeepLApi::new(&key, false);
-    let response = api.translate("Hello World", None, Lang::ZH).await.unwrap();
+    let prop = TranslateTextProp::builder().target_lang(Lang::ZH).build();
+    let response = api.translate("Hello World", &prop).await.unwrap();
 
     assert!(!response.translations.is_empty());
 
@@ -817,7 +804,7 @@ async fn test_advanced_translator_xml_ignore_tags() {
         .ignore_tags(vec!["keep".to_owned()])
         .tag_handling(TagHandling::Xml)
         .build();
-    let response = api.translate_advanced("Hello World <keep additionalarg=\"test0\">This will stay exactly the way it was</keep>", &settings).await.unwrap();
+    let response = api.translate("Hello World <keep additionalarg=\"test0\">This will stay exactly the way it was</keep>", &settings).await.unwrap();
 
     assert!(!response.translations.is_empty());
 
@@ -839,7 +826,7 @@ async fn test_advanced_translator_html() {
         .tag_handling(TagHandling::Html)
         .build();
     let response = api
-        .translate_advanced(
+        .translate(
             "Hello World <keep translate=\"no\">This will stay exactly the way it was</keep>",
             &settings,
         )
