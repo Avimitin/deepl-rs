@@ -44,7 +44,7 @@ use typed_builder::TypedBuilder;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("invalid response: {0}")]
-    InvalidReponse(String),
+    InvalidResponse(String),
 
     #[error("request fail: {0}")]
     RequestFail(String),
@@ -85,9 +85,9 @@ pub struct Sentence {
     pub text: String,
 }
 
-/// Reponse from the usage API
+/// Response from the usage API
 #[derive(Deserialize)]
-pub struct UsageReponse {
+pub struct UsageResponse {
     pub character_count: u64,
     pub character_limit: u64,
 }
@@ -417,12 +417,12 @@ impl DeepLApi {
         let resp = res
             .json::<DeeplErrorResp>()
             .await
-            .map_err(|err| Error::InvalidReponse(format!("invalid error response: {err}")))?;
+            .map_err(|err| Error::InvalidResponse(format!("invalid error response: {err}")))?;
         Err(Error::RequestFail(resp.message))
     }
 
     /// Translate the given text into expected target language. Source language is optional
-    /// and can be detemined by DeepL API.
+    /// and can be determined by DeepL API.
     ///
     /// # Error
     ///
@@ -524,7 +524,7 @@ impl DeepLApi {
         }
 
         let response: DeepLApiResponse = response.json().await.map_err(|err| {
-            Error::InvalidReponse(format!("convert json bytes to Rust type: {err}"))
+            Error::InvalidResponse(format!("convert json bytes to Rust type: {err}"))
         })?;
 
         Ok(response)
@@ -542,7 +542,7 @@ impl DeepLApi {
     ///
     /// assert_ne!(response.character_count, 0);
     /// ```
-    pub async fn get_usage(&self) -> Result<UsageReponse> {
+    pub async fn get_usage(&self) -> Result<UsageResponse> {
         let response = self
             .post(self.endpoint.join("usage").unwrap())
             .send()
@@ -553,8 +553,8 @@ impl DeepLApi {
             return Self::extract_deepl_error(response).await;
         }
 
-        let response: UsageReponse = response.json().await.map_err(|err| {
-            Error::InvalidReponse(format!("convert json bytes to Rust type: {err}"))
+        let response: UsageResponse = response.json().await.map_err(|err| {
+            Error::InvalidResponse(format!("convert json bytes to Rust type: {err}"))
         })?;
 
         Ok(response)
@@ -626,10 +626,9 @@ impl DeepLApi {
             return Self::extract_deepl_error(res).await;
         }
 
-        let res: DocumentUploadResp = res
-            .json()
-            .await
-            .map_err(|err| Error::InvalidReponse(format!("fail to decode response body: {err}")))?;
+        let res: DocumentUploadResp = res.json().await.map_err(|err| {
+            Error::InvalidResponse(format!("fail to decode response body: {err}"))
+        })?;
 
         Ok(res)
     }
@@ -658,7 +657,7 @@ impl DeepLApi {
         let status: DocumentStatusResp = res
             .json()
             .await
-            .map_err(|err| Error::InvalidReponse(format!("response is not JSON: {err}")))?;
+            .map_err(|err| Error::InvalidResponse(format!("response is not JSON: {err}")))?;
 
         Ok(status)
     }
