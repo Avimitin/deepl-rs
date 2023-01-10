@@ -2,7 +2,7 @@
 
 [<img alt="github" src="https://img.shields.io/badge/github-Avimitin/deepl--rs-7E9CD8?style=flat&labelColor=252535&logo=github" height="20">](https://github.com/Avimitin/deepl-rs)
 [<img alt="crates.io" src="https://img.shields.io/crates/v/deepl.svg?style=flat&color=fd7726&labelColor=252535&logo=rust" height="20">](https://crates.io/crates/deepl)
-[<img alt="docs.rs" src="https://img.shields.io/docsrs/deepl?color=252535&logo=rust&labelColor=2B3328" height="20">](https://docs.rs/deepl/latest/deepl/)
+[<img alt="docs.rs" src="https://img.shields.io/docsrs/deepl?color=2b5a28&logo=rust&labelColor=252535" height="20">](https://docs.rs/deepl/latest/deepl/)
 
 Typed HTTP wrapper for interacting with DeepL API. File upload/download is also implemented.
 
@@ -10,7 +10,7 @@ Typed HTTP wrapper for interacting with DeepL API. File upload/download is also 
 
 ```toml
 [dependencies]
-deepl = "0.2.0"
+deepl = "0.3.0"
 ```
 
 ```rust
