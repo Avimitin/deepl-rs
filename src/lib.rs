@@ -113,26 +113,44 @@ pub struct UsageResponse {
 #[derive(TypedBuilder)]
 #[builder(
     builder_type_doc = "Builder for type [`TranslateTextProp`]",
-    builder_method_doc = "Create a build for type [`TranslateTextProp`]. All fields except `target_lang` are optional. See [`DeepLApi::translate()`] for more",
+    builder_method_doc = "Create a build for type [`TranslateTextProp`]. All fields except `target_lang` are optional. See [`DeepLApi::translate()`] for more"
 )]
 pub struct TranslateTextProp {
     /// Language of the text to be translated, optional
-    #[builder(default, setter(strip_option, doc = "Language of the text to be translated, optional"))]
+    #[builder(
+        default,
+        setter(strip_option, doc = "Language of the text to be translated, optional")
+    )]
     source_lang: Option<Lang>,
     /// Language into which text should be translated, required
     #[builder(setter(doc = "Language into which text should be translated, required"))]
     target_lang: Lang,
     /// Sets whether the translation engine should first split the input into sentences
-    #[builder(default, setter(strip_option, doc = "Sets whether the translation engine should first split the input into sentences"))]
+    #[builder(
+        default,
+        setter(
+            strip_option,
+            doc = "Sets whether the translation engine should first split the input into sentences"
+        )
+    )]
     split_sentences: Option<SplitSentences>,
     /// Whether the translation engine should respect the original formatting
-    #[builder(default, setter(strip_option, doc = "Whether the translation engine should respect the original formatting"))]
+    #[builder(
+        default,
+        setter(
+            strip_option,
+            doc = "Whether the translation engine should respect the original formatting"
+        )
+    )]
     preserve_formatting: Option<PreserveFormatting>,
     /// A unique ID assigned to your accounts glossary. optional
     #[builder(default, setter(transform = |g: impl ToString| Some(g.to_string()), doc = "A unique ID assigned to your accounts glossary. optional"))]
     glossary_id: Option<String>,
     /// Sets how DeepL should handle markup tags
-    #[builder(default, setter(strip_option, doc = "Sets how DeepL should handle markup tags"))]
+    #[builder(
+        default,
+        setter(strip_option, doc = "Sets how DeepL should handle markup tags")
+    )]
     tag_handling: Option<TagHandling>,
     /// List of XML tags which never split sentences
     /// see: <https://www.deepl.com/docs-api/xml/restricting-splitting/>
@@ -428,7 +446,7 @@ pub struct DeepLApi {
                 } else {
                     "https://api-free.deepl.com/v2/"
                 };
-                reqwest::Url::parse(url).unwrap() 
+                reqwest::Url::parse(url).unwrap()
             }
         )
     )]
@@ -771,21 +789,17 @@ impl DeepLApi {
 
         #[inline]
         fn mapper<E: std::error::Error>(s: &'static str) -> Box<dyn FnOnce(E) -> Error> {
-            Box::new(move |err: E| {
-                Error::WriteFileError(format!("{s}: {err}"))
-            })
+            Box::new(move |err: E| Error::WriteFileError(format!("{s}: {err}")))
         }
 
         while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(
-                mapper("fail to download part of the document")
-            )?;
-            file.write_all(&chunk).await.map_err(
-                mapper("fail to write downloaded part into file")
-            )?;
-            file.sync_all().await.map_err(
-                mapper("fail to sync file content")
-            )?;
+            let chunk = chunk.map_err(mapper("fail to download part of the document"))?;
+            file.write_all(&chunk)
+                .await
+                .map_err(mapper("fail to write downloaded part into file"))?;
+            file.sync_all()
+                .await
+                .map_err(mapper("fail to sync file content"))?;
         }
 
         Ok(output.as_ref().to_path_buf())
