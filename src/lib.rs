@@ -27,6 +27,7 @@
 //! This project is licensed under MIT license.
 //!
 
+mod endpoint;
 mod lang;
 
 pub use lang::Lang;
