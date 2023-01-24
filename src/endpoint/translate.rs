@@ -3,14 +3,14 @@ use paste::paste;
 
 macro_rules! impl_requester {
     (
-        @name: $name:ident;
-        @must{
-            $($must_field:ident: $must_type:ty,)+
-        };
-        @optional{
-            $($opt_field:ident: $opt_type:ty,)+
-        };
-        @fut_ret: $ret_ty:ty;
+        $name:ident {
+            @must{
+                $($must_field:ident: $must_type:ty,)+
+            };
+            @optional{
+                $($opt_field:ident: $opt_type:ty,)+
+            };
+        } -> $fut_ret:ty;
     ) => {
         paste! {
             pub struct [<$name Requester>]<'a> {
@@ -38,7 +38,7 @@ macro_rules! impl_requester {
             }
 
             impl<'a> std::future::Future for [<$name Requester>]<'a> {
-                type Output = DeepLApiResponse;
+                type Output = $fut_ret;
 
                 fn poll(
                     self: std::pin::Pin<&mut Self>,
@@ -52,19 +52,19 @@ macro_rules! impl_requester {
 }
 
 impl_requester! {
-    @name: Translate;
-    @must{
-        text: String,
-        target_lang: Lang,
-    };
-    @optional{
-        source_lang: Lang,
-        split_sentences: SplitSentences,
-        preserve_formatting: PreserveFormatting,
-        glossary_id: String,
-        tag_handling: TagHandling,
-        non_splitting_tags: Vec<String>,
-        ignore_tags: Vec<String>,
-    };
-    @fut_ret: String;
+    Translate {
+        @must{
+            text: String,
+            target_lang: Lang,
+        };
+        @optional{
+            source_lang: Lang,
+            split_sentences: SplitSentences,
+            preserve_formatting: PreserveFormatting,
+            glossary_id: String,
+            tag_handling: TagHandling,
+            non_splitting_tags: Vec<String>,
+            ignore_tags: Vec<String>,
+        };
+    } -> String;
 }
