@@ -1,4 +1,6 @@
 use crate::{DeepLApi, Lang, TagHandling};
+use std::{future::Future, pin::Pin};
+use thiserror::Error;
 
 pub mod document;
 pub mod translate;
@@ -10,40 +12,88 @@ impl DeepLApi {
     }
 }
 
-#[tokio::test]
-async fn test_translate_text() {
-    let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key, false);
-    let response = api.translate_text("Hello World", Lang::ZH).await.unwrap();
+/// Representing error during interaction with DeepL
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("invalid response: {0}")]
+    InvalidResponse(String),
 
-    assert!(!response.translations.is_empty());
+    #[error("request fail: {0}")]
+    RequestFail(String),
 
-    let translated_results = response.translations;
-    assert_eq!(translated_results[0].text, "你好，世界");
-    assert_eq!(translated_results[0].detected_source_language, Lang::EN);
+    #[error("fail to read file {0}: {1}")]
+    ReadFileError(String, tokio::io::Error),
+
+    #[error(
+        "trying to download a document using a non-existing document ID or the wrong document key"
+    )]
+    NonExistDocument,
+
+    #[error("tries to download a translated document that is currently being processed and is not yet ready for download")]
+    TranslationNotDone,
+
+    #[error("fail to write file: {0}")]
+    WriteFileError(String),
 }
 
-#[tokio::test]
-async fn test_advanced_translate() {
-    let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key, false);
+type Result<T, E = Error> = std::result::Result<T, E>;
 
-    let response = api.translate_text(
-            "Hello World <keep additionalarg=\"test0\">This will stay exactly the way it was</keep>",
-            Lang::DE
-        )
-        .source_lang(Lang::EN)
-        .ignore_tags(vec!["keep".to_string()])
-        .tag_handling(TagHandling::Xml)
-        .await
-        .unwrap();
+type Pollable<'poll, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'poll>>;
 
-    assert!(!response.translations.is_empty());
+pub trait ToPollable<T> {
+    fn to_pollable(&mut self) -> Pollable<T>;
+}
 
-    let translated_results = response.translations;
-    assert_eq!(
-        translated_results[0].text,
-        "Hallo Welt <keep additionalarg=\"test0\">This will stay exactly the way it was</keep>"
-    );
-    assert_eq!(translated_results[0].detected_source_language, Lang::EN);
+#[macro_export]
+macro_rules! impl_requester {
+    (
+        $(#[$docs:meta])*
+        $name:ident {
+            @must{
+                $($must_field:ident: $must_type:ty,)+
+            };
+            @optional{
+                $($opt_field:ident: $opt_type:ty,)+
+            };
+        } -> $fut_ret:ty;
+    ) => {
+        paste! {
+            $(#[$docs])*
+            pub struct [<$name Requester>]<'a> {
+                client: &'a DeepLApi,
+
+                $($must_field: $must_type,)+
+                $($opt_field: Option<$opt_type>,)+
+            }
+
+            impl<'a> [<$name Requester>]<'a> {
+                pub fn new(client: &'a DeepLApi, $($must_field: $must_type,)+) -> Self {
+                    Self {
+                        client,
+                        $($must_field,)+
+                        $($opt_field: None,)+
+                    }
+                }
+
+                $(
+                    pub fn $opt_field(&mut self, $opt_field: $opt_type) -> &mut Self {
+                        self.$opt_field = Some($opt_field);
+                        self
+                    }
+                )+
+            }
+
+            impl<'a> std::future::Future for [<$name Requester>]<'a> {
+                type Output = $fut_ret;
+
+                fn poll(
+                    mut self: std::pin::Pin<&mut Self>,
+                    cx: &mut std::task::Context<'_>,
+                ) -> std::task::Poll<Self::Output> {
+                    let mut fut = self.to_pollable();
+                    fut.as_mut().poll(cx)
+                }
+            }
+        }
+    };
 }

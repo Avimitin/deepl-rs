@@ -1,62 +1,53 @@
-use std::{collections::HashMap, future::Future, pin::Pin};
+use std::collections::HashMap;
 
 use crate::{
-    DeepLApi, DeepLApiResponse, Error, Lang, PreserveFormatting, SplitSentences, TagHandling,
+    endpoint::{Pollable, Result, ToPollable},
+    impl_requester, DeepLApi, DeepLApiResponse, Error, Lang, PreserveFormatting, SplitSentences,
+    TagHandling,
 };
+
 use paste::paste;
 
-macro_rules! impl_requester {
-    (
-        $name:ident {
-            @must{
-                $($must_field:ident: $must_type:ty,)+
-            };
-            @optional{
-                $($opt_field:ident: $opt_type:ty,)+
-            };
-        } -> $fut_ret:ty;
-    ) => {
-        paste! {
-            pub struct [<$name Requester>]<'a> {
-                client: &'a DeepLApi,
-
-                $($must_field: $must_type,)+
-                $($opt_field: Option<$opt_type>,)+
-            }
-
-            impl<'a> [<$name Requester>]<'a> {
-                pub fn new(client: &'a DeepLApi, $($must_field: $must_type,)+) -> Self {
-                    Self {
-                        client,
-                        $($must_field,)+
-                        $($opt_field: None,)+
-                    }
-                }
-
-                $(
-                    pub fn $opt_field(&mut self, $opt_field: $opt_type) -> &mut Self {
-                        self.$opt_field = Some($opt_field);
-                        self
-                    }
-                )+
-            }
-
-            impl<'a> std::future::Future for [<$name Requester>]<'a> {
-                type Output = $fut_ret;
-
-                fn poll(
-                    mut self: std::pin::Pin<&mut Self>,
-                    cx: &mut std::task::Context<'_>,
-                ) -> std::task::Poll<Self::Output> {
-                    let mut fut = self.to_pollable();
-                    fut.as_mut().poll(cx)
-                }
-            }
-        }
-    };
-}
-
 impl_requester! {
+    /// Translate the given text using the given text translation settings.
+    ///
+    /// # Error
+    ///
+    /// Return [`crates::Error`] if the http request fail
+    ///
+    /// # Example
+    ///
+    /// * Simple translation
+    ///
+    /// ```rust
+    /// use deepl::{DeepLApi, Lang};
+    ///
+    /// let api = DeepLApi::new("YOUR AUTH KEY", false);
+    ///
+    /// // Translate "Hello World" to Chinese
+    /// let response = api.translate_text("Hello World", Lang::ZH).await.unwrap();
+    ///
+    /// assert!(!response.translations.is_empty());
+    /// ```
+    ///
+    /// * Translation with XML tag enabled
+    ///
+    /// ```rust
+    /// use deepl::{DeepLApi, Lang};
+    ///
+    /// let api = DeepLApi::new("YOUR AUTH KEY", false);
+    /// let str = "Hello World <keep>This will stay exactly the way it was</keep>";
+    /// let response = api.translate_text(str, Lang::DE)
+    ///     .source_lang(Lang::EN)
+    ///     .ignore_tags(vec!["keep".to_owned()])
+    ///     .tag_handling(TagHandling::Xml)
+    ///     .await
+    ///     .unwrap();
+    ///
+    /// let translated_results = response.translations;
+    /// let should = "Hallo Welt <keep>This will stay exactly the way it was</keep>";
+    /// assert_eq!(translated_results[0].text, should);
+    /// ```
     Translate {
         @must{
             text: String,
@@ -75,13 +66,6 @@ impl_requester! {
     } -> Result<DeepLApiResponse, Error>;
 }
 
-type Pollable<'poll, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'poll>>;
-type Result<T, E = Error> = std::result::Result<T, E>;
-
-pub trait ToPollable<T> {
-    fn to_pollable(&mut self) -> Pollable<T>;
-}
-
 impl<'a> ToPollable<Result<DeepLApiResponse>> for TranslateRequester<'a> {
     fn to_pollable(&mut self) -> Pollable<Result<DeepLApiResponse>> {
         Box::pin(self.send())
@@ -89,7 +73,7 @@ impl<'a> ToPollable<Result<DeepLApiResponse>> for TranslateRequester<'a> {
 }
 
 impl<'a> TranslateRequester<'a> {
-    pub async fn send(&self) -> Result<DeepLApiResponse, Error> {
+    async fn send(&self) -> Result<DeepLApiResponse, Error> {
         let mut param = HashMap::new();
         param.insert("text", self.text.as_str());
 

@@ -30,6 +30,7 @@
 mod endpoint;
 mod lang;
 
+pub use endpoint::Error;
 pub use lang::Lang;
 pub use reqwest;
 
@@ -42,30 +43,6 @@ use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use tokio_stream::StreamExt;
 use typed_builder::TypedBuilder;
-
-/// Representing error during interaction with DeepL
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("invalid response: {0}")]
-    InvalidResponse(String),
-
-    #[error("request fail: {0}")]
-    RequestFail(String),
-
-    #[error("fail to read file {0}: {1}")]
-    ReadFileError(String, tokio::io::Error),
-
-    #[error(
-        "trying to download a document using a non-existing document ID or the wrong document key"
-    )]
-    NonExistDocument,
-
-    #[error("tries to download a translated document that is currently being processed and is not yet ready for download")]
-    TranslationNotDone,
-
-    #[error("fail to write file: {0}")]
-    WriteFileError(String),
-}
 
 // detail message of the API error
 #[derive(Deserialize)]
@@ -484,101 +461,6 @@ impl DeepLApi {
         Err(Error::RequestFail(resp.message))
     }
 
-    /// Translate the given text using the given text translation settings.
-    ///
-    /// # Error
-    ///
-    /// Return error if the http request fail
-    ///
-    /// # Example
-    ///
-    /// * Simple translation
-    ///
-    /// ```rust
-    /// use deepl::{DeepLApi, Lang};
-    ///
-    /// let api = DeepLApi::new("YOUR AUTH KEY");
-    ///
-    /// let prop = TranslateTextProp::builder()
-    ///                .target_lang(Lang::ZH)
-    ///                .build();
-    /// let response = api.translate("Hello World", &prop).await.unwrap();
-    /// assert!(!response.translations.is_empty());
-    /// ```
-    ///
-    /// * Translation with XML tag enabled
-    ///
-    /// ```rust
-    /// use deepl::{DeepLApi, Lang};
-    ///
-    /// let api = DeepLApi::new("YOUR AUTH KEY");
-    /// let settings = TranslateTextProp::builder()
-    ///     .source_lang(Lang::EN)
-    ///     .target_lang(Lang::DE)
-    ///     .ignore_tags(vec!["keep".to_owned()])
-    ///     .tag_handling(TagHandling::Xml)
-    ///     .build();
-    /// let str = "Hello World <keep>This will stay exactly the way it was</keep>";
-    /// let response = api.translate_advanced(str, &settings).await.unwrap();
-    ///
-    /// let translated_results = response.translations;
-    /// let should = "Hallo Welt <keep>This will stay exactly the way it was</keep>";
-    /// assert_eq!(translated_results[0].text, should);
-    /// ```
-    pub async fn translate(
-        &self,
-        text: &str,
-        settings: &TranslateTextProp,
-    ) -> Result<DeepLApiResponse> {
-        let mut param = HashMap::new();
-        param.insert("text", text);
-        if let Some(ref la) = settings.source_lang {
-            param.insert("source_lang", la.as_ref());
-        }
-        param.insert("target_lang", settings.target_lang.as_ref());
-        if let Some(ref ss) = settings.split_sentences {
-            param.insert("split_sentences", ss.as_ref());
-        }
-        if let Some(ref pf) = settings.preserve_formatting {
-            param.insert("preserve_formatting", pf.as_ref());
-        }
-        if let Some(ref id) = settings.glossary_id {
-            param.insert("glossary_id", id);
-        }
-        if let Some(ref th) = settings.tag_handling {
-            param.insert("tag_handling", th.as_ref());
-        }
-        let non_splitting_tags = settings.non_splitting_tags.join(",");
-        if !non_splitting_tags.is_empty() {
-            param.insert("non_splitting_tags", &non_splitting_tags);
-        }
-        let splitting_tags = settings.splitting_tags.join(",");
-        if !splitting_tags.is_empty() {
-            param.insert("splitting_tags", &splitting_tags);
-        }
-        let ignore_tags = settings.ignore_tags.join(",");
-        if !ignore_tags.is_empty() {
-            param.insert("ignore_tags", &ignore_tags);
-        }
-
-        let response = self
-            .post(self.endpoint.join("translate").unwrap())
-            .form(&param)
-            .send()
-            .await
-            .map_err(|err| Error::RequestFail(err.to_string()))?;
-
-        if !response.status().is_success() {
-            return Self::extract_deepl_error(response).await;
-        }
-
-        let response: DeepLApiResponse = response.json().await.map_err(|err| {
-            Error::InvalidResponse(format!("convert json bytes to Rust type: {err}"))
-        })?;
-
-        Ok(response)
-    }
-
     /// Get the current DeepL API usage
     ///
     /// # Example
@@ -808,11 +690,10 @@ impl DeepLApi {
 }
 
 #[tokio::test]
-async fn test_translator() {
+async fn test_translate_text() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
     let api = DeepLApi::new(&key, false);
-    let prop = TranslateTextProp::builder().target_lang(Lang::ZH).build();
-    let response = api.translate("Hello World", &prop).await.unwrap();
+    let response = api.translate_text("Hello World", Lang::ZH).await.unwrap();
 
     assert!(!response.translations.is_empty());
 
@@ -822,17 +703,19 @@ async fn test_translator() {
 }
 
 #[tokio::test]
-async fn test_advanced_translator_xml_ignore_tags() {
+async fn test_advanced_translate() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
     let api = DeepLApi::new(&key, false);
 
-    let settings = TranslateTextProp::builder()
+    let response = api.translate_text(
+            "Hello World <keep additionalarg=\"test0\">This will stay exactly the way it was</keep>",
+            Lang::DE
+        )
         .source_lang(Lang::EN)
-        .target_lang(Lang::DE)
-        .ignore_tags(vec!["keep".to_owned()])
+        .ignore_tags(vec!["keep".to_string()])
         .tag_handling(TagHandling::Xml)
-        .build();
-    let response = api.translate("Hello World <keep additionalarg=\"test0\">This will stay exactly the way it was</keep>", &settings).await.unwrap();
+        .await
+        .unwrap();
 
     assert!(!response.translations.is_empty());
 
