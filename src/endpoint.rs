@@ -1,16 +1,9 @@
-use crate::{DeepLApi, Lang, TagHandling};
+use serde::{Deserialize, Serialize};
 use std::{future::Future, pin::Pin};
 use thiserror::Error;
 
 pub mod document;
 pub mod translate;
-pub mod usage;
-
-impl DeepLApi {
-    pub fn translate_text(&self, text: &str, target_lang: Lang) -> translate::TranslateRequester {
-        translate::TranslateRequester::new(self, text.to_string(), target_lang)
-    }
-}
 
 /// Representing error during interaction with DeepL
 #[derive(Debug, Error)]
@@ -57,6 +50,9 @@ macro_rules! impl_requester {
             };
         } -> $fut_ret:ty;
     ) => {
+        use paste::paste;
+        use crate::{DeepLApi, Error};
+
         paste! {
             $(#[$docs])*
             pub struct [<$name Requester>]<'a> {
@@ -96,4 +92,46 @@ macro_rules! impl_requester {
             }
         }
     };
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Formality {
+    Default,
+    More,
+    Less,
+    PreferMore,
+    PreferLess,
+}
+
+impl AsRef<str> for Formality {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Default => "default",
+            Self::More => "more",
+            Self::Less => "less",
+            Self::PreferMore => "prefer_more",
+            Self::PreferLess => "prefer_less",
+        }
+    }
+}
+
+impl ToString for Formality {
+    fn to_string(&self) -> String {
+        self.as_ref().to_string()
+    }
+}
+
+// detail message of the API error
+#[derive(Deserialize)]
+struct DeepLErrorResp {
+    message: String,
+}
+
+async fn extract_deepl_error(res: reqwest::Response) -> Result<DeepLErrorResp> {
+    let resp = res
+        .json::<DeepLErrorResp>()
+        .await
+        .map_err(|err| Error::InvalidResponse(format!("invalid error response: {err}")))?;
+    Err(Error::RequestFail(resp.message))
 }

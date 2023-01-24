@@ -2,52 +2,78 @@ use std::collections::HashMap;
 
 use crate::{
     endpoint::{Pollable, Result, ToPollable},
-    impl_requester, DeepLApi, DeepLApiResponse, Error, Lang, PreserveFormatting, SplitSentences,
-    TagHandling,
+    impl_requester, DeepLApiResponse, Lang,
 };
 
-use paste::paste;
+///
+/// Sets whether the translation engine should respect the original formatting,
+/// even if it would usually correct some aspects.
+/// The formatting aspects affected by this setting include:
+/// - Punctuation at the beginning and end of the sentence
+/// - Upper/lower case at the beginning of the sentence
+///
+pub enum PreserveFormatting {
+    Preserve,
+    DontPreserve,
+}
+
+impl AsRef<str> for PreserveFormatting {
+    fn as_ref(&self) -> &str {
+        match self {
+            PreserveFormatting::Preserve => "1",
+            PreserveFormatting::DontPreserve => "0",
+        }
+    }
+}
+
+///
+/// Sets whether the translation engine should first split the input into sentences
+///
+/// For applications that send one sentence per text parameter, it is advisable to set this to `None`,
+/// in order to prevent the engine from splitting the sentence unintentionally.
+/// Please note that newlines will split sentences. You should therefore clean files to avoid breaking sentences or set this to `PunctuationOnly`.
+///
+pub enum SplitSentences {
+    /// Perform no splitting at all, whole input is treated as one sentence
+    None,
+    /// Split on punctuation and on newlines (default)
+    PunctuationAndNewlines,
+    /// Split on punctuation only, ignoring newlines
+    PunctuationOnly,
+}
+
+impl AsRef<str> for SplitSentences {
+    fn as_ref(&self) -> &str {
+        match self {
+            SplitSentences::None => "0",
+            SplitSentences::PunctuationAndNewlines => "1",
+            SplitSentences::PunctuationOnly => "nonewlines",
+        }
+    }
+}
+
+///
+/// Sets which kind of tags should be handled. Options currently available
+///
+pub enum TagHandling {
+    /// Enable XML tag handling
+    /// see: <https://www.deepl.com/docs-api/xml>
+    Xml,
+    /// Enable HTML tag handling
+    /// see: <https://www.deepl.com/docs-api/html>
+    Html,
+}
+
+impl AsRef<str> for TagHandling {
+    fn as_ref(&self) -> &str {
+        match self {
+            TagHandling::Xml => "xml",
+            TagHandling::Html => "html",
+        }
+    }
+}
 
 impl_requester! {
-    /// Translate the given text using the given text translation settings.
-    ///
-    /// # Error
-    ///
-    /// Return [`crates::Error`] if the http request fail
-    ///
-    /// # Example
-    ///
-    /// * Simple translation
-    ///
-    /// ```rust
-    /// use deepl::{DeepLApi, Lang};
-    ///
-    /// let api = DeepLApi::new("YOUR AUTH KEY", false);
-    ///
-    /// // Translate "Hello World" to Chinese
-    /// let response = api.translate_text("Hello World", Lang::ZH).await.unwrap();
-    ///
-    /// assert!(!response.translations.is_empty());
-    /// ```
-    ///
-    /// * Translation with XML tag enabled
-    ///
-    /// ```rust
-    /// use deepl::{DeepLApi, Lang};
-    ///
-    /// let api = DeepLApi::new("YOUR AUTH KEY", false);
-    /// let str = "Hello World <keep>This will stay exactly the way it was</keep>";
-    /// let response = api.translate_text(str, Lang::DE)
-    ///     .source_lang(Lang::EN)
-    ///     .ignore_tags(vec!["keep".to_owned()])
-    ///     .tag_handling(TagHandling::Xml)
-    ///     .await
-    ///     .unwrap();
-    ///
-    /// let translated_results = response.translations;
-    /// let should = "Hallo Welt <keep>This will stay exactly the way it was</keep>";
-    /// assert_eq!(translated_results[0].text, should);
-    /// ```
     Translate {
         @must{
             text: String,
@@ -194,7 +220,7 @@ async fn test_advanced_translator_html() {
             "Hello World <keep translate=\"no\">This will stay exactly the way it was</keep>",
             Lang::DE,
         )
-            .tag_handling(TagHandling::Html)
+        .tag_handling(TagHandling::Html)
         .await
         .unwrap();
 

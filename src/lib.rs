@@ -44,12 +44,6 @@ use tokio::io::AsyncWriteExt;
 use tokio_stream::StreamExt;
 use typed_builder::TypedBuilder;
 
-// detail message of the API error
-#[derive(Deserialize)]
-struct DeeplErrorResp {
-    message: String,
-}
-
 type Result<T, E = Error> = core::result::Result<T, E>;
 
 /// Response from basic translation API
@@ -70,206 +64,6 @@ pub struct Sentence {
 pub struct UsageResponse {
     pub character_count: u64,
     pub character_limit: u64,
-}
-
-/// Configure how to upload the document to DeepL API.
-///
-/// # Example
-///
-/// ```rust
-/// let prop = UploadDocumentProp::builder()
-///     .source_lang(Lang::EN_GB)
-///     .target_lang(Lang::ZH)
-///     .file_path("/path/to/document.pdf")
-///     .filename("Foo Bar Baz")
-///     .formality(Formality::Default)
-///     .glossary_id("def3a26b-3e84-45b3-84ae-0c0aaf3525f7")
-///     .build();
-/// ...
-/// ```
-#[derive(TypedBuilder)]
-#[builder(doc)]
-pub struct UploadDocumentProp<'fp> {
-    /// Language of the text to be translated, optional
-    #[builder(default, setter(strip_option))]
-    source_lang: Option<Lang>,
-    /// Language into which text should be translated, required
-    target_lang: Lang,
-    /// Path of the file to be translated, required
-    file_path: &'fp Path,
-    /// Name of the file, optional
-    #[builder(default, setter(transform = |f: &str| Some(f.to_string())))]
-    filename: Option<String>,
-    /// Sets whether the translated text should lean towards formal or informal language.
-    /// This feature currently only works for target languages DE (German), FR (French),
-    /// IT (Italian), ES (Spanish), NL (Dutch), PL (Polish), PT-PT, PT-BR (Portuguese)
-    /// and RU (Russian). Setting this parameter with a target language that does not
-    /// support formality will fail, unless one of the prefer_... options are used. optional
-    #[builder(default, setter(strip_option))]
-    formality: Option<Formality>,
-    /// A unique ID assigned to your accounts glossary. optional
-    #[builder(default, setter(transform = |g: &str| Some(g.to_string())))]
-    glossary_id: Option<String>,
-}
-
-impl<'fp> UploadDocumentProp<'fp> {
-    async fn into_multipart_form(self) -> Result<reqwest::multipart::Form> {
-        let Self {
-            source_lang,
-            target_lang,
-            file_path,
-            filename,
-            formality,
-            glossary_id,
-        } = self;
-
-        let mut form = reqwest::multipart::Form::new();
-
-        // SET source_lang
-        if let Some(lang) = source_lang {
-            form = form.text("source_lang", lang.to_string());
-        }
-
-        // SET target_lang
-        form = form.text("target_lang", target_lang.to_string());
-
-        // SET file && filename
-        let file = tokio::fs::read(&file_path)
-            .await
-            .map_err(|err| Error::ReadFileError(file_path.to_str().unwrap().to_string(), err))?;
-
-        let mut part = reqwest::multipart::Part::bytes(file);
-        if let Some(filename) = filename {
-            part = part.file_name(filename.to_string());
-            form = form.text("filename", filename);
-        } else {
-            part = part.file_name(file_path.file_name().expect(
-                "No extension found for this file, and no filename given, cannot make request",
-            ).to_str().expect("no a valid UTF-8 filepath!").to_string());
-        }
-
-        form = form.part("file", part);
-
-        // SET formality
-        if let Some(formal) = formality {
-            form = form.text("formality", formal.to_string());
-        }
-
-        // SET glossary
-        if let Some(id) = glossary_id {
-            form = form.text("glossary_id", id);
-        }
-
-        Ok(form)
-    }
-}
-
-///
-/// Sets whether the translation engine should respect the original formatting,
-/// even if it would usually correct some aspects.
-/// The formatting aspects affected by this setting include:
-/// - Punctuation at the beginning and end of the sentence
-/// - Upper/lower case at the beginning of the sentence
-///
-pub enum PreserveFormatting {
-    Preserve,
-    DontPreserve,
-}
-
-impl AsRef<str> for PreserveFormatting {
-    fn as_ref(&self) -> &str {
-        match self {
-            PreserveFormatting::Preserve => "1",
-            PreserveFormatting::DontPreserve => "0",
-        }
-    }
-}
-
-///
-/// Sets whether the translation engine should first split the input into sentences
-///
-/// For applications that send one sentence per text parameter, it is advisable to set this to `None`,
-/// in order to prevent the engine from splitting the sentence unintentionally.
-/// Please note that newlines will split sentences. You should therefore clean files to avoid breaking sentences or set this to `PunctuationOnly`.
-///
-pub enum SplitSentences {
-    /// Perform no splitting at all, whole input is treated as one sentence
-    None,
-    /// Split on punctuation and on newlines (default)
-    PunctuationAndNewlines,
-    /// Split on punctuation only, ignoring newlines
-    PunctuationOnly,
-}
-
-impl AsRef<str> for SplitSentences {
-    fn as_ref(&self) -> &str {
-        match self {
-            SplitSentences::None => "0",
-            SplitSentences::PunctuationAndNewlines => "1",
-            SplitSentences::PunctuationOnly => "nonewlines",
-        }
-    }
-}
-
-///
-/// Sets which kind of tags should be handled. Options currently available
-///
-pub enum TagHandling {
-    /// Enable XML tag handling
-    /// see: <https://www.deepl.com/docs-api/xml>
-    Xml,
-    /// Enable HTML tag handling
-    /// see: <https://www.deepl.com/docs-api/html>
-    Html,
-}
-
-impl AsRef<str> for TagHandling {
-    fn as_ref(&self) -> &str {
-        match self {
-            TagHandling::Xml => "xml",
-            TagHandling::Html => "html",
-        }
-    }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Formality {
-    Default,
-    More,
-    Less,
-    PreferMore,
-    PreferLess,
-}
-
-impl AsRef<str> for Formality {
-    fn as_ref(&self) -> &str {
-        match self {
-            Self::Default => "default",
-            Self::More => "more",
-            Self::Less => "less",
-            Self::PreferMore => "prefer_more",
-            Self::PreferLess => "prefer_less",
-        }
-    }
-}
-
-impl ToString for Formality {
-    fn to_string(&self) -> String {
-        self.as_ref().to_string()
-    }
-}
-
-/// Response from api/v2/document
-#[derive(Serialize, Deserialize)]
-pub struct DocumentUploadResp {
-    /// A unique ID assigned to the uploaded document and the translation process.
-    /// Must be used when referring to this particular document in subsequent API requests.
-    pub document_id: String,
-    /// A unique key that is used to encrypt the uploaded document as well as the resulting
-    /// translation on the server side. Must be provided with every subsequent API request
-    /// regarding this particular document.
-    pub document_key: String,
 }
 
 /// Response from api/v2/document/$ID
@@ -379,12 +173,51 @@ impl DeepLApi {
         self.client.post(url).header("Authorization", &self.key)
     }
 
-    async fn extract_deepl_error<T>(res: reqwest::Response) -> Result<T> {
-        let resp = res
-            .json::<DeeplErrorResp>()
-            .await
-            .map_err(|err| Error::InvalidResponse(format!("invalid error response: {err}")))?;
-        Err(Error::RequestFail(resp.message))
+    /// Translate the given text using the given text translation settings.
+    ///
+    /// # Error
+    ///
+    /// Return [`crates::Error`] if the http request fail
+    ///
+    /// # Example
+    ///
+    /// * Simple translation
+    ///
+    /// ```rust
+    /// use deepl::{DeepLApi, Lang};
+    ///
+    /// let api = DeepLApi::new("YOUR AUTH KEY", false);
+    ///
+    /// // Translate "Hello World" to Chinese
+    /// let response = api.translate_text("Hello World", Lang::ZH).await.unwrap();
+    ///
+    /// assert!(!response.translations.is_empty());
+    /// ```
+    ///
+    /// * Translation with XML tag enabled
+    ///
+    /// ```rust
+    /// use deepl::{DeepLApi, Lang};
+    ///
+    /// let api = DeepLApi::new("YOUR AUTH KEY", false);
+    /// let str = "Hello World <keep>This will stay exactly the way it was</keep>";
+    /// let response = api.translate_text(str, Lang::DE)
+    ///     .source_lang(Lang::EN)
+    ///     .ignore_tags(vec!["keep".to_owned()])
+    ///     .tag_handling(TagHandling::Xml)
+    ///     .await
+    ///     .unwrap();
+    ///
+    /// let translated_results = response.translations;
+    /// let should = "Hallo Welt <keep>This will stay exactly the way it was</keep>";
+    /// assert_eq!(translated_results[0].text, should);
+    /// ```
+    pub fn translate_text(
+        &self,
+        text: impl ToString,
+        target_lang: Lang,
+    ) -> endpoint::translate::TranslateRequester {
+        endpoint::translate::TranslateRequester::new(self, text.to_string(), target_lang)
     }
 
     /// Get the current DeepL API usage
@@ -467,27 +300,12 @@ impl DeepLApi {
     /// let content = tokio::fs::read_to_string(path).await.unwrap();
     /// // ...
     /// ```
-    pub async fn upload_document<'fp>(
+    pub async fn upload_document(
         &self,
-        prop: UploadDocumentProp<'fp>,
-    ) -> Result<DocumentUploadResp> {
-        let form = prop.into_multipart_form().await?;
-        let res = self
-            .post(self.endpoint.join("document").unwrap())
-            .multipart(form)
-            .send()
-            .await
-            .map_err(|err| Error::RequestFail(format!("fail to upload file: {err}")))?;
-
-        if !res.status().is_success() {
-            return Self::extract_deepl_error(res).await;
-        }
-
-        let res: DocumentUploadResp = res.json().await.map_err(|err| {
-            Error::InvalidResponse(format!("fail to decode response body: {err}"))
-        })?;
-
-        Ok(res)
+        fp: impl Into<std::path::PathBuf>,
+        target_lang: Lang,
+    ) -> endpoint::document::UploadDocumentRequester {
+        endpoint::document::UploadDocumentRequester::new(self, fp.into(), target_lang)
     }
 
     /// Check the status of document, returning [`DocumentStatusResp`] if success.
