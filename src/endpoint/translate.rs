@@ -45,7 +45,7 @@ macro_rules! impl_requester {
                 type Output = $fut_ret;
 
                 fn poll(
-                    self: std::pin::Pin<&mut Self>,
+                    mut self: std::pin::Pin<&mut Self>,
                     cx: &mut std::task::Context<'_>,
                 ) -> std::task::Poll<Self::Output> {
                     let mut fut = self.to_pollable();
@@ -75,14 +75,15 @@ impl_requester! {
     } -> Result<DeepLApiResponse, Error>;
 }
 
-type Pollable<T> = Pin<Box<dyn Future<Output = T> + Send + Sync>>;
+type Pollable<'poll, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'poll>>;
+type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub trait ToPollable<T> {
-    fn to_pollable(self) -> Pollable<T>;
+    fn to_pollable(&mut self) -> Pollable<T>;
 }
 
-impl<'a> ToPollable<Result<DeepLApiResponse, Error>> for TranslateRequester<'a> {
-    fn to_pollable(self) -> Pollable<Result<DeepLApiResponse, Error>> {
+impl<'a> ToPollable<Result<DeepLApiResponse>> for TranslateRequester<'a> {
+    fn to_pollable(&mut self) -> Pollable<Result<DeepLApiResponse>> {
         Box::pin(self.send())
     }
 }
