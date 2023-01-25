@@ -5,6 +5,9 @@
 ### Changed
 
 - (**BREAKING**) Implement auto send for all endpoint
+- (**BREAKING**) `DeepLApi` implementation is now separated to multiple endpoint file
+- (**BREAKING**) `DeepLApiResponse` is now renamed to `TranslateTextResp`
+- (**BREAKING**) `DeepLApi` now require user to manually call `.build()` to create
 
 ## [v0.3.0] - 2023-01-10
 
