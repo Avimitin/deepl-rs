@@ -1,7 +1,9 @@
-use super::{Formality, Pollable, Result, ToPollable};
-use crate::{impl_requester, Lang};
+use super::{Pollable, Result, ToPollable};
+use crate::{impl_requester, Formality, Lang};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use tokio::io::AsyncWriteExt;
+use tokio_stream::StreamExt;
 
 /// Response from api/v2/document
 #[derive(Serialize, Deserialize)]
@@ -13,6 +15,45 @@ pub struct UploadDocumentResp {
     /// translation on the server side. Must be provided with every subsequent API request
     /// regarding this particular document.
     pub document_key: String,
+}
+
+/// Response from api/v2/document/$ID
+#[derive(Deserialize, Debug)]
+pub struct DocumentStatusResp {
+    /// A unique ID assigned to the uploaded document and the requested translation process.
+    /// The same ID that was used when requesting the translation status.
+    pub document_id: String,
+    /// A short description of the state the document translation process is currently in.
+    /// See [`DocumentTranslateStatus`] for more.
+    pub status: DocumentTranslateStatus,
+    /// Estimated number of seconds until the translation is done.
+    /// This parameter is only included while status is "translating".
+    pub seconds_remaining: Option<u64>,
+    /// The number of characters billed to your account.
+    pub billed_characters: Option<u64>,
+    /// A short description of the error, if available. Note that the content is subject to change.
+    /// This parameter may be included if an error occurred during translation.
+    pub error_message: Option<String>,
+}
+
+/// Possible value of the document translate status
+#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DocumentTranslateStatus {
+    /// The translation job is waiting in line to be processed
+    Queued,
+    /// The translation is currently ongoing
+    Translating,
+    /// The translation is done and the translated document is ready for download
+    Done,
+    /// An irrecoverable error occurred while translating the document
+    Error,
+}
+
+impl DocumentTranslateStatus {
+    pub fn is_done(&self) -> bool {
+        self == &Self::Done
+    }
 }
 
 impl_requester! {
@@ -108,4 +149,261 @@ impl<'a> UploadDocumentRequester<'a> {
 
         Ok(res)
     }
+}
+
+impl DeepLApi {
+    /// Upload document to DeepL server, returning a document ID and key which can be used
+    /// to query the translation status and to download the translated document once
+    /// translation is complete.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use deepl::DeepLApi
+    ///
+    /// let api = DeepLApi::new(&key, false);
+    ///
+    /// // configure upload option
+    /// let upload_option = UploadDocumentProp::builder()
+    ///     .source_lang(Lang::EN_GB)
+    ///     .target_lang(Lang::ZH)
+    ///     .file_path("./hamlet.txt")
+    ///     .filename("Hamlet.txt")
+    ///     .formality(Formality::Default)
+    ///     .glossary_id("def3a26b-3e84-45b3-84ae-0c0aaf3525f7")
+    ///     .build();
+    ///
+    /// // Upload the file to DeepL
+    /// let response = api.upload_document(upload_option).await.unwrap();
+    ///
+    /// // Query the translate status
+    /// let mut status = api.check_document_status(&response).await.unwrap();
+    ///
+    /// // wait for translation
+    /// loop {
+    ///     if status.status.is_done() {
+    ///         break;
+    ///     }
+    ///     if let Some(msg) = status.error_message {
+    ///         eprintln!("{}", msg);
+    ///         break;
+    ///     }
+    ///     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    ///     status = api.check_document_status(&response).await.unwrap();
+    /// }
+    ///
+    /// // After translation done, download it to "translated.txt"
+    /// let path = api
+    ///     .download_document(&response, "translated.txt", None)
+    ///     .await
+    ///     .unwrap();
+    ///
+    /// // See whats in it
+    /// let content = tokio::fs::read_to_string(path).await.unwrap();
+    /// // ...
+    /// ```
+    pub fn upload_document(
+        &self,
+        fp: impl Into<std::path::PathBuf>,
+        target_lang: Lang,
+    ) -> UploadDocumentRequester {
+        UploadDocumentRequester::new(self, fp.into(), target_lang)
+    }
+
+    async fn open_file_to_write(p: &Path) -> Result<tokio::fs::File> {
+        let open_result = tokio::fs::OpenOptions::new()
+            .append(true)
+            .create_new(true)
+            .open(p)
+            .await;
+
+        if let Ok(file) = open_result {
+            return Ok(file);
+        }
+
+        let err = open_result.unwrap_err();
+        if err.kind() != std::io::ErrorKind::AlreadyExists {
+            return Err(Error::WriteFileError(format!(
+                "Fail to open file {p:?}: {err}"
+            )));
+        }
+
+        tokio::fs::remove_file(p).await.map_err(|err| {
+            Error::WriteFileError(format!(
+                "There was already a file there and it is not deletable: {err}"
+            ))
+        })?;
+        dbg!("Detect exist, removed");
+
+        let open_result = tokio::fs::OpenOptions::new()
+            .append(true)
+            .create_new(true)
+            .open(p)
+            .await;
+
+        if let Err(err) = open_result {
+            return Err(Error::WriteFileError(format!(
+                "Fail to open file for download document, even after retry: {err}"
+            )));
+        }
+
+        Ok(open_result.unwrap())
+    }
+
+    /// Check the status of document, returning [`DocumentStatusResp`] if success.
+    pub async fn check_document_status(
+        &self,
+        ident: &UploadDocumentResp,
+    ) -> Result<DocumentStatusResp> {
+        let form = [("document_key", ident.document_key.as_str())];
+        let url = self
+            .endpoint
+            .join(&format!("document/{}", ident.document_id))
+            .unwrap();
+        let res = self
+            .post(url)
+            .form(&form)
+            .send()
+            .await
+            .map_err(|err| Error::RequestFail(err.to_string()))?;
+
+        if !res.status().is_success() {
+            return super::extract_deepl_error(res).await;
+        }
+
+        let status: DocumentStatusResp = res
+            .json()
+            .await
+            .map_err(|err| Error::InvalidResponse(format!("response is not JSON: {err}")))?;
+
+        Ok(status)
+    }
+
+    /// Download the possibly translated document. Downloaded document will store to the specific
+    /// `output` path.
+    ///
+    /// Return downloaded file's path if success
+    pub async fn download_document<O: AsRef<Path>>(
+        &self,
+        ident: &UploadDocumentResp,
+        output: O,
+    ) -> Result<PathBuf> {
+        let url = self
+            .endpoint
+            .join(&format!("document/{}/result", ident.document_id))
+            .unwrap();
+        let form = [("document_key", ident.document_key.as_str())];
+        let res = self
+            .post(url)
+            .form(&form)
+            .send()
+            .await
+            .map_err(|err| Error::RequestFail(err.to_string()))?;
+
+        if res.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(Error::NonExistDocument);
+        }
+
+        if res.status() == reqwest::StatusCode::SERVICE_UNAVAILABLE {
+            return Err(Error::TranslationNotDone);
+        }
+
+        if !res.status().is_success() {
+            return super::extract_deepl_error(res).await;
+        }
+
+        let mut file = Self::open_file_to_write(output.as_ref()).await?;
+
+        let mut stream = res.bytes_stream();
+
+        #[inline]
+        fn mapper<E: std::error::Error>(s: &'static str) -> Box<dyn FnOnce(E) -> Error> {
+            Box::new(move |err: E| Error::WriteFileError(format!("{s}: {err}")))
+        }
+
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(mapper("fail to download part of the document"))?;
+            file.write_all(&chunk)
+                .await
+                .map_err(mapper("fail to write downloaded part into file"))?;
+            file.sync_all()
+                .await
+                .map_err(mapper("fail to sync file content"))?;
+        }
+
+        Ok(output.as_ref().to_path_buf())
+    }
+}
+
+#[tokio::test]
+async fn test_upload_document() {
+    let key = std::env::var("DEEPL_API_KEY").unwrap();
+    let api = DeepLApi::new(&key).build();
+
+    let raw_text = "Doubt thou the stars are fire. \
+    Doubt that the sun doth move. \
+    Doubt truth to be a liar. \
+    But never doubt my love.";
+
+    tokio::fs::write("./test.txt", &raw_text).await.unwrap();
+
+    let test_file = PathBuf::from("./test.txt");
+    let response = api.upload_document(&test_file, Lang::ZH).await.unwrap();
+    let mut status = api.check_document_status(&response).await.unwrap();
+
+    // wait for translation
+    loop {
+        if status.status.is_done() {
+            break;
+        }
+        if let Some(msg) = status.error_message {
+            println!("{}", msg);
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        status = api.check_document_status(&response).await.unwrap();
+        dbg!(&status);
+    }
+
+    let path = api
+        .download_document(&response, "test_translated.txt")
+        .await
+        .unwrap();
+
+    let content = tokio::fs::read_to_string(path).await.unwrap();
+    let expect = "怀疑你的星星是火。怀疑太阳在动。怀疑真理是个骗子。但永远不要怀疑我的爱。";
+    assert_eq!(content, expect);
+}
+
+#[tokio::test]
+async fn test_upload_docx() {
+    use pretty_assertions::assert_eq;
+    let key = std::env::var("DEEPL_API_KEY").unwrap();
+    let api = DeepLApi::new(&key).build();
+
+    let test_file = PathBuf::from("./asserts/example.docx");
+    let response = api.upload_document(&test_file, Lang::ZH).await.unwrap();
+    let mut status = api.check_document_status(&response).await.unwrap();
+
+    // wait for translation
+    loop {
+        if status.status.is_done() {
+            break;
+        }
+        if let Some(msg) = status.error_message {
+            println!("{}", msg);
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        status = api.check_document_status(&response).await.unwrap();
+        dbg!(&status);
+    }
+
+    let path = api
+        .download_document(&response, "translated.docx")
+        .await
+        .unwrap();
+    let get = tokio::fs::read(&path).await.unwrap();
+    let want = tokio::fs::read("./asserts/expected.docx").await.unwrap();
+    assert_eq!(get, want);
 }
