@@ -118,20 +118,25 @@ impl<'a> TranslateRequester<'a> {
         let mut param = HashMap::new();
         param.insert("text", self.text.as_str());
 
-        if let Some(ref la) = self.source_lang {
+        if let Some(la) = &self.source_lang {
             param.insert("source_lang", la.as_ref());
         }
-        param.insert("target_lang", self.target_lang.as_ref());
-        if let Some(ref ss) = self.split_sentences {
+
+        param.insert("target_lang", &self.target_lang.as_ref());
+
+        if let Some(ss) = &self.split_sentences {
             param.insert("split_sentences", ss.as_ref());
         }
-        if let Some(ref pf) = self.preserve_formatting {
+
+        if let Some(pf) = &self.preserve_formatting {
             param.insert("preserve_formatting", pf.as_ref());
         }
-        if let Some(ref id) = self.glossary_id {
+
+        if let Some(id) = &self.glossary_id {
             param.insert("glossary_id", id);
         }
-        if let Some(ref th) = self.tag_handling {
+
+        if let Some(th) = &self.tag_handling {
             param.insert("tag_handling", th.as_ref());
         }
 
