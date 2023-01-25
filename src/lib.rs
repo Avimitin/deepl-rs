@@ -102,8 +102,8 @@ impl DeepLApiBuilder {
         self
     }
 
-    pub fn build(self) -> DeepLApi {
-        let client = self.client.unwrap_or_else(|| reqwest::Client::new());
+    pub fn build(&self) -> DeepLApi {
+        let client = self.client.clone().unwrap_or_else(reqwest::Client::new);
         let endpoint = if self.is_pro {
             "https://api.deepl.com/v2/"
         } else {

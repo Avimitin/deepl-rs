@@ -60,7 +60,7 @@ macro_rules! impl_requester {
         } -> $fut_ret:ty;
     ) => {
         use paste::paste;
-        use crate::{DeepLApi, Error};
+        use $crate::{DeepLApi, Error};
 
         paste! {
             $(#[$docs])*
