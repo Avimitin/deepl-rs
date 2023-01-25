@@ -173,53 +173,6 @@ impl DeepLApi {
         self.client.post(url).header("Authorization", &self.key)
     }
 
-    /// Translate the given text using the given text translation settings.
-    ///
-    /// # Error
-    ///
-    /// Return [`crates::Error`] if the http request fail
-    ///
-    /// # Example
-    ///
-    /// * Simple translation
-    ///
-    /// ```rust
-    /// use deepl::{DeepLApi, Lang};
-    ///
-    /// let api = DeepLApi::new("YOUR AUTH KEY", false);
-    ///
-    /// // Translate "Hello World" to Chinese
-    /// let response = api.translate_text("Hello World", Lang::ZH).await.unwrap();
-    ///
-    /// assert!(!response.translations.is_empty());
-    /// ```
-    ///
-    /// * Translation with XML tag enabled
-    ///
-    /// ```rust
-    /// use deepl::{DeepLApi, Lang};
-    ///
-    /// let api = DeepLApi::new("YOUR AUTH KEY", false);
-    /// let str = "Hello World <keep>This will stay exactly the way it was</keep>";
-    /// let response = api.translate_text(str, Lang::DE)
-    ///     .source_lang(Lang::EN)
-    ///     .ignore_tags(vec!["keep".to_owned()])
-    ///     .tag_handling(TagHandling::Xml)
-    ///     .await
-    ///     .unwrap();
-    ///
-    /// let translated_results = response.translations;
-    /// let should = "Hallo Welt <keep>This will stay exactly the way it was</keep>";
-    /// assert_eq!(translated_results[0].text, should);
-    /// ```
-    pub fn translate_text(
-        &self,
-        text: impl ToString,
-        target_lang: Lang,
-    ) -> endpoint::translate::TranslateRequester {
-        endpoint::translate::TranslateRequester::new(self, text.to_string(), target_lang)
-    }
-
     /// Get the current DeepL API usage
     ///
     /// # Example
