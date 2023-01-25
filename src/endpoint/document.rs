@@ -99,7 +99,7 @@ impl<'a> UploadDocumentRequester<'a> {
             .map_err(|err| Error::RequestFail(format!("fail to upload file: {err}")))?;
 
         if !res.status().is_success() {
-            return Self::extract_deepl_error(res).await;
+            return super::extract_deepl_error(res).await;
         }
 
         let res: UploadDocumentResp = res.json().await.map_err(|err| {

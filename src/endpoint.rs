@@ -128,7 +128,7 @@ struct DeepLErrorResp {
     message: String,
 }
 
-async fn extract_deepl_error(res: reqwest::Response) -> Result<DeepLErrorResp> {
+async fn extract_deepl_error<T>(res: reqwest::Response) -> Result<T> {
     let resp = res
         .json::<DeepLErrorResp>()
         .await

@@ -153,15 +153,7 @@ impl<'a> TranslateRequester<'a> {
             .map_err(|err| Error::RequestFail(err.to_string()))?;
 
         if !response.status().is_success() {
-            return {
-                let resp = response
-                    .json::<crate::DeeplErrorResp>()
-                    .await
-                    .map_err(|err| {
-                        Error::InvalidResponse(format!("invalid error response: {err}"))
-                    })?;
-                Err(Error::RequestFail(resp.message))
-            };
+            return super::extract_deepl_error(response).await;
         }
 
         let response: DeepLApiResponse = response.json().await.map_err(|err| {
