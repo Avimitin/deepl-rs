@@ -2,8 +2,23 @@ use std::collections::HashMap;
 
 use crate::{
     endpoint::{Pollable, Result, ToPollable},
-    impl_requester, DeepLApiResponse, Lang,
+    impl_requester, Lang,
 };
+
+use serde::Deserialize;
+
+/// Response from basic translation API
+#[derive(Deserialize)]
+pub struct TranslateTextResp {
+    pub translations: Vec<Sentence>,
+}
+
+/// Translated result for a sentence
+#[derive(Deserialize)]
+pub struct Sentence {
+    pub detected_source_language: Lang,
+    pub text: String,
+}
 
 ///
 /// Sets whether the translation engine should respect the original formatting,
@@ -89,17 +104,17 @@ impl_requester! {
             splitting_tags: Vec<String>,
             ignore_tags: Vec<String>,
         };
-    } -> Result<DeepLApiResponse, Error>;
+    } -> Result<TranslateTextResp, Error>;
 }
 
-impl<'a> ToPollable<Result<DeepLApiResponse>> for TranslateRequester<'a> {
-    fn to_pollable(&mut self) -> Pollable<Result<DeepLApiResponse>> {
+impl<'a> ToPollable<Result<TranslateTextResp>> for TranslateRequester<'a> {
+    fn to_pollable(&mut self) -> Pollable<Result<TranslateTextResp>> {
         Box::pin(self.send())
     }
 }
 
 impl<'a> TranslateRequester<'a> {
-    async fn send(&self) -> Result<DeepLApiResponse, Error> {
+    async fn send(&self) -> Result<TranslateTextResp, Error> {
         let mut param = HashMap::new();
         param.insert("text", self.text.as_str());
 
@@ -156,7 +171,7 @@ impl<'a> TranslateRequester<'a> {
             return super::extract_deepl_error(response).await;
         }
 
-        let response: DeepLApiResponse = response.json().await.map_err(|err| {
+        let response: TranslateTextResp = response.json().await.map_err(|err| {
             Error::InvalidResponse(format!("convert json bytes to Rust type: {err}"))
         })?;
 
@@ -204,11 +219,7 @@ impl DeepLApi {
     /// let should = "Hallo Welt <keep>This will stay exactly the way it was</keep>";
     /// assert_eq!(translated_results[0].text, should);
     /// ```
-    pub fn translate_text(
-        &self,
-        text: impl ToString,
-        target_lang: Lang,
-    ) -> TranslateRequester {
+    pub fn translate_text(&self, text: impl ToString, target_lang: Lang) -> TranslateRequester {
         TranslateRequester::new(self, text.to_string(), target_lang)
     }
 }
@@ -216,7 +227,7 @@ impl DeepLApi {
 #[tokio::test]
 async fn test_translate_text() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key, false);
+    let api = DeepLApi::new(&key).build();
     let response = api.translate_text("Hello World", Lang::ZH).await.unwrap();
 
     assert!(!response.translations.is_empty());
@@ -229,7 +240,7 @@ async fn test_translate_text() {
 #[tokio::test]
 async fn test_advanced_translate() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key, false);
+    let api = DeepLApi::new(&key).build();
 
     let response = api.translate_text(
             "Hello World <keep additionalarg=\"test0\">This will stay exactly the way it was</keep>",
@@ -254,7 +265,7 @@ async fn test_advanced_translate() {
 #[tokio::test]
 async fn test_advanced_translator_html() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key, false);
+    let api = DeepLApi::new(&key).build();
 
     let response = api
         .translate_text(
