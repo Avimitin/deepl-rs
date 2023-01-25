@@ -4,6 +4,7 @@ use thiserror::Error;
 
 pub mod document;
 pub mod translate;
+pub mod usage;
 
 /// Representing error during interaction with DeepL
 #[derive(Debug, Error)]
@@ -29,14 +30,22 @@ pub enum Error {
     WriteFileError(String),
 }
 
+/// Alias Result<T, E> to Result<T, [`Error`]>
 type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// Pollable alias to a Pin<Box<dyn Future<...>>>. A convenient type for impl [`Future`] trait
 type Pollable<'poll, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'poll>>;
 
-pub trait ToPollable<T> {
+/// ToPollable trait require type implemented this return a impl [`Future`] for manually polling
+trait ToPollable<T> {
     fn to_pollable(&mut self) -> Pollable<T>;
 }
 
+/// Create endpoint request param builder struct. It will automatically call `.poll()` for the
+/// builder struct, thus user can call `.await` to auto send request.
+///
+/// Notice: This macro will assume you implemented the [`ToPollable`] trait, so remember to
+/// implement it for your _Requester.
 #[macro_export]
 macro_rules! impl_requester {
     (
@@ -128,6 +137,7 @@ struct DeepLErrorResp {
     message: String,
 }
 
+/// Turn DeepL API error message into [`Error`]
 async fn extract_deepl_error<T>(res: reqwest::Response) -> Result<T> {
     let resp = res
         .json::<DeepLErrorResp>()
