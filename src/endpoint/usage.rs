@@ -44,7 +44,7 @@ impl DeepLApi {
 #[tokio::test]
 async fn test_usage() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key).build();
+    let api = DeepLApi::with(&key).new();
     let response = api.get_usage().await.unwrap();
 
     assert_ne!(response.character_count, 0);

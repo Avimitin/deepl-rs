@@ -1,13 +1,14 @@
 # Changelog
 
-## Unreleased
+## [v0.4.0] - 2023-01-26
 
 ### Changed
 
 - (**BREAKING**) Implement auto send for all endpoint
 - (**BREAKING**) `DeepLApi` implementation is now separated to multiple endpoint file
 - (**BREAKING**) `DeepLApiResponse` is now renamed to `TranslateTextResp`
-- (**BREAKING**) `DeepLApi` now require user to manually call `.build()` to create
+- (**BREAKING**) `DeepLApi` is now init by `::with()` function and build by `.new()` function
+- Using `docx-rs` to parse document content for testing
 
 ## [v0.3.0] - 2023-01-10
 

@@ -13,6 +13,19 @@ pub struct TranslateTextResp {
     pub translations: Vec<Sentence>,
 }
 
+impl std::fmt::Display for TranslateTextResp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.translations
+                .iter()
+                .map(|sent| sent.text.to_string())
+                .collect::<String>()
+        )
+    }
+}
+
 /// Translated result for a sentence
 #[derive(Deserialize)]
 pub struct Sentence {
@@ -201,11 +214,11 @@ impl<'a> TranslateRequester<'a> {
 }
 
 impl DeepLApi {
-    /// Translate the given text using the given text translation settings.
+    /// Translate the given text with specific target language.
     ///
     /// # Error
     ///
-    /// Return [`crates::Error`] if the http request fail
+    /// Return [`Error`] if the http request fail
     ///
     /// # Example
     ///
@@ -214,10 +227,10 @@ impl DeepLApi {
     /// ```rust
     /// use deepl::{DeepLApi, Lang};
     ///
-    /// let api = DeepLApi::new("YOUR AUTH KEY", false);
+    /// let key = std::env::var("DEEPL_API_KEY").unwrap();
+    /// let deepl = DeepLApi::with(&key).new();
     ///
-    /// // Translate "Hello World" to Chinese
-    /// let response = api.translate_text("Hello World", Lang::ZH).await.unwrap();
+    /// let response = deepl.translate_text("Hello World", Lang::ZH).await.unwrap();
     ///
     /// assert!(!response.translations.is_empty());
     /// ```
@@ -229,7 +242,8 @@ impl DeepLApi {
     ///
     /// let api = DeepLApi::new("YOUR AUTH KEY", false);
     /// let str = "Hello World <keep>This will stay exactly the way it was</keep>";
-    /// let response = api.translate_text(str, Lang::DE)
+    /// let response = api
+    ///     .translate_text(str, Lang::DE)
     ///     .source_lang(Lang::EN)
     ///     .ignore_tags(vec!["keep".to_owned()])
     ///     .tag_handling(TagHandling::Xml)
@@ -248,7 +262,7 @@ impl DeepLApi {
 #[tokio::test]
 async fn test_translate_text() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key).build();
+    let api = DeepLApi::with(&key).new();
     let response = api.translate_text("Hello World", Lang::ZH).await.unwrap();
 
     assert!(!response.translations.is_empty());
@@ -261,7 +275,7 @@ async fn test_translate_text() {
 #[tokio::test]
 async fn test_advanced_translate() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key).build();
+    let api = DeepLApi::with(&key).new();
 
     let response = api.translate_text(
             "Hello World <keep additionalarg=\"test0\">This will stay exactly the way it was</keep>",
@@ -286,7 +300,7 @@ async fn test_advanced_translate() {
 #[tokio::test]
 async fn test_advanced_translator_html() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key).build();
+    let api = DeepLApi::with(&key).new();
 
     let response = api
         .translate_text(

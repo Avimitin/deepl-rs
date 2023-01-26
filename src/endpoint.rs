@@ -33,18 +33,14 @@ pub enum Error {
 /// Alias Result<T, E> to Result<T, [`Error`]>
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-/// Pollable alias to a Pin<Box<dyn Future<...>>>. A convenient type for impl [`Future`] trait
+/// Pollable alias to a Pin<Box<dyn Future<...>>>. A convenient type for impl
+/// [`IntoFuture`](std::future::IntoFuture) trait
 type Pollable<'poll, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'poll>>;
 
-/// Create endpoint request param builder struct. It will automatically call `.poll()` for the
-/// builder struct, thus user can call `.await` to auto send request.
-///
-/// Notice: This macro will assume you implemented the [`ToPollable`] trait, so remember to
-/// implement it for your _Requester.
+/// A self implemented Type Builder
 #[macro_export]
 macro_rules! impl_requester {
     (
-        $(#[$docs:meta])*
         $name:ident {
             @must{
                 $($must_field:ident: $must_type:ty,)+
@@ -58,7 +54,7 @@ macro_rules! impl_requester {
         use $crate::{DeepLApi, Error};
 
         paste! {
-            $(#[$docs])*
+            #[doc = "Builder type for `" $name "`"]
             pub struct [<$name Requester>]<'a> {
                 client: &'a DeepLApi,
 
@@ -76,6 +72,7 @@ macro_rules! impl_requester {
                 }
 
                 $(
+                    #[doc = "Setter for `" $opt_field "`"]
                     pub fn $opt_field(&mut self, $opt_field: $opt_type) -> &mut Self {
                         self.$opt_field = Some($opt_field);
                         self
@@ -108,10 +105,9 @@ impl AsRef<str> for Formality {
     }
 }
 
-// TODO: impl Display
-impl ToString for Formality {
-    fn to_string(&self) -> String {
-        self.as_ref().to_string()
+impl std::fmt::Display for Formality {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
     }
 }
 

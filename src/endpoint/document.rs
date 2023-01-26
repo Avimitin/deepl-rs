@@ -171,8 +171,8 @@ impl<'a> IntoFuture for &mut UploadDocumentRequester<'a> {
 }
 
 impl DeepLApi {
-    /// Upload document to DeepL server, returning a document ID and key which can be used
-    /// to query the translation status and to download the translated document once
+    /// Upload document to DeepL API server, return [`UploadDocumentResp`] for
+    /// quering the translation status and to download the translated document once
     /// translation is complete.
     ///
     /// # Example
@@ -180,47 +180,20 @@ impl DeepLApi {
     /// ```rust
     /// use deepl::DeepLApi
     ///
-    /// let api = DeepLApi::new(&key, false);
-    ///
-    /// // configure upload option
-    /// let upload_option = UploadDocumentProp::builder()
-    ///     .source_lang(Lang::EN_GB)
-    ///     .target_lang(Lang::ZH)
-    ///     .file_path("./hamlet.txt")
-    ///     .filename("Hamlet.txt")
-    ///     .formality(Formality::Default)
-    ///     .glossary_id("def3a26b-3e84-45b3-84ae-0c0aaf3525f7")
-    ///     .build();
+    /// let api = DeepLApi::with(&key).new();
     ///
     /// // Upload the file to DeepL
-    /// let response = api.upload_document(upload_option).await.unwrap();
-    ///
-    /// // Query the translate status
-    /// let mut status = api.check_document_status(&response).await.unwrap();
-    ///
-    /// // wait for translation
-    /// loop {
-    ///     if status.status.is_done() {
-    ///         break;
-    ///     }
-    ///     if let Some(msg) = status.error_message {
-    ///         eprintln!("{}", msg);
-    ///         break;
-    ///     }
-    ///     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-    ///     status = api.check_document_status(&response).await.unwrap();
-    /// }
-    ///
-    /// // After translation done, download it to "translated.txt"
-    /// let path = api
-    ///     .download_document(&response, "translated.txt", None)
-    ///     .await
-    ///     .unwrap();
-    ///
-    /// // See whats in it
-    /// let content = tokio::fs::read_to_string(path).await.unwrap();
-    /// // ...
+    /// let filepath = std::path::PathBuf::from("./hamlet.txt");
+    /// let response = api.upload_document(&filepath, Lang::ZH)
+    ///         .source_lang(Lang::EN_GB)
+    ///         .filename("Hamlet.txt")
+    ///         .formality(Formality::Default)
+    ///         .glossary_id("def3a26b-3e84-45b3-84ae-0c0aaf3525f7")
+    ///         .await
+    ///         .unwrap();
     /// ```
+    ///
+    /// Read the example `upload_document` in repository for detail usage
     pub fn upload_document(
         &self,
         fp: impl Into<std::path::PathBuf>,
@@ -295,7 +268,7 @@ impl DeepLApi {
         Ok(status)
     }
 
-    /// Download the possibly translated document. Downloaded document will store to the specific
+    /// Download the possibly translated document. Downloaded document will store to the given
     /// `output` path.
     ///
     /// Return downloaded file's path if success
@@ -351,7 +324,7 @@ impl DeepLApi {
 #[tokio::test]
 async fn test_upload_document() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key).build();
+    let api = DeepLApi::with(&key).new();
 
     let raw_text = "Doubt thou the stars are fire. \
     Doubt that the sun doth move. \
@@ -393,7 +366,7 @@ async fn test_upload_docx() {
     use docx_rs::{read_docx, DocumentChild, Docx, Paragraph, ParagraphChild, Run, RunChild};
 
     let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let api = DeepLApi::new(&key).build();
+    let api = DeepLApi::with(&key).new();
 
     let test_file = PathBuf::from("./example.docx");
     let file = std::fs::File::create(&test_file).expect("fail to create test asserts");
@@ -429,6 +402,7 @@ async fn test_upload_docx() {
         .unwrap();
     let get = tokio::fs::read(&path).await.unwrap();
     let doc = read_docx(&get).expect("can not open downloaded document");
+    // collect all the text in this docx file
     let text = doc
         .document
         .children
