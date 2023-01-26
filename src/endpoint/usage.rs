@@ -24,7 +24,7 @@ impl DeepLApi {
     /// ```
     pub async fn get_usage(&self) -> Result<UsageResponse> {
         let response = self
-            .post(self.endpoint.join("usage").unwrap())
+            .post(self.get_endpoint("usage"))
             .send()
             .await
             .map_err(|err| Error::RequestFail(err.to_string()))?;

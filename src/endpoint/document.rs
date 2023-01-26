@@ -1,7 +1,10 @@
-use super::{Pollable, Result, ToPollable};
+use super::{Pollable, Result};
 use crate::{impl_requester, Formality, Lang};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    future::IntoFuture,
+    path::{Path, PathBuf},
+};
 use tokio::io::AsyncWriteExt;
 use tokio_stream::StreamExt;
 
@@ -71,19 +74,11 @@ impl_requester! {
     } -> Result<UploadDocumentResp, Error>;
 }
 
-impl<'a> ToPollable<Result<UploadDocumentResp>> for UploadDocumentRequester<'a> {
-    fn to_pollable(&mut self) -> Pollable<Result<UploadDocumentResp>> {
-        Box::pin(self.send())
-    }
-}
-
 impl<'a> UploadDocumentRequester<'a> {
-    async fn to_multipart_form(&self) -> Result<reqwest::multipart::Form, crate::Error> {
+    fn to_multipart_form(&self) -> reqwest::multipart::Form {
         let Self {
             source_lang,
             target_lang,
-            file_path,
-            filename,
             formality,
             glossary_id,
             ..
@@ -99,23 +94,6 @@ impl<'a> UploadDocumentRequester<'a> {
         // SET target_lang
         form = form.text("target_lang", target_lang.to_string());
 
-        // SET file && filename
-        let file = tokio::fs::read(&file_path)
-            .await
-            .map_err(|err| Error::ReadFileError(file_path.to_str().unwrap().to_string(), err))?;
-
-        let mut part = reqwest::multipart::Part::bytes(file);
-        if let Some(filename) = filename {
-            part = part.file_name(filename.to_string());
-            form = form.text("filename", filename.to_string());
-        } else {
-            part = part.file_name(file_path.file_name().expect(
-                "No extension found for this file, and no filename given, cannot make request",
-            ).to_str().expect("no a valid UTF-8 filepath!").to_string());
-        }
-
-        form = form.part("file", part);
-
         // SET formality
         if let Some(formal) = formality {
             form = form.text("formality", formal.to_string());
@@ -126,28 +104,69 @@ impl<'a> UploadDocumentRequester<'a> {
             form = form.text("glossary_id", id.to_string());
         }
 
-        Ok(form)
+        form
     }
 
-    async fn send(&self) -> Result<UploadDocumentResp> {
-        let form = self.to_multipart_form().await?;
-        let res = self
-            .client
-            .post(self.client.endpoint.join("document").unwrap())
-            .multipart(form)
-            .send()
-            .await
-            .map_err(|err| Error::RequestFail(format!("fail to upload file: {err}")))?;
+    fn send(&self) -> Pollable<'a, Result<UploadDocumentResp>> {
+        let mut form = self.to_multipart_form();
+        let client = self.client.clone();
+        let filename = self.filename.clone();
+        let file_path = self.file_path.clone();
 
-        if !res.status().is_success() {
-            return super::extract_deepl_error(res).await;
-        }
+        let fut = async move {
+            // SET file && filename asynchronously
+            let file = tokio::fs::read(&file_path).await.map_err(|err| {
+                Error::ReadFileError(file_path.to_str().unwrap().to_string(), err)
+            })?;
 
-        let res: UploadDocumentResp = res.json().await.map_err(|err| {
-            Error::InvalidResponse(format!("fail to decode response body: {err}"))
-        })?;
+            let mut part = reqwest::multipart::Part::bytes(file);
+            if let Some(filename) = filename {
+                part = part.file_name(filename.to_string());
+                form = form.text("filename", filename);
+            } else {
+                part = part.file_name(file_path.file_name().expect(
+                    "No extension found for this file, and no filename given, cannot make request",
+                ).to_str().expect("no a valid UTF-8 filepath!").to_string());
+            }
 
-        Ok(res)
+            form = form.part("file", part);
+
+            let res = client
+                .post(client.get_endpoint("document"))
+                .multipart(form)
+                .send()
+                .await
+                .map_err(|err| Error::RequestFail(format!("fail to upload file: {err}")))?;
+
+            if !res.status().is_success() {
+                return super::extract_deepl_error(res).await;
+            }
+
+            let res: UploadDocumentResp = res.json().await.map_err(|err| {
+                Error::InvalidResponse(format!("fail to decode response body: {err}"))
+            })?;
+            Ok(res)
+        };
+
+        Box::pin(fut)
+    }
+}
+
+impl<'a> IntoFuture for UploadDocumentRequester<'a> {
+    type Output = Result<UploadDocumentResp>;
+    type IntoFuture = Pollable<'a, Self::Output>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        self.send()
+    }
+}
+
+impl<'a> IntoFuture for &mut UploadDocumentRequester<'a> {
+    type Output = Result<UploadDocumentResp>;
+    type IntoFuture = Pollable<'a, Self::Output>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        self.send()
     }
 }
 
@@ -256,10 +275,7 @@ impl DeepLApi {
         ident: &UploadDocumentResp,
     ) -> Result<DocumentStatusResp> {
         let form = [("document_key", ident.document_key.as_str())];
-        let url = self
-            .endpoint
-            .join(&format!("document/{}", ident.document_id))
-            .unwrap();
+        let url = self.get_endpoint(&format!("document/{}", ident.document_id));
         let res = self
             .post(url)
             .form(&form)
@@ -288,10 +304,7 @@ impl DeepLApi {
         ident: &UploadDocumentResp,
         output: O,
     ) -> Result<PathBuf> {
-        let url = self
-            .endpoint
-            .join(&format!("document/{}/result", ident.document_id))
-            .unwrap();
+        let url = self.get_endpoint(&format!("document/{}/result", ident.document_id));
         let form = [("document_key", ident.document_key.as_str())];
         let res = self
             .post(url)

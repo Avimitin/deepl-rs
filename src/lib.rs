@@ -30,6 +30,8 @@
 mod endpoint;
 mod lang;
 
+use std::sync::Arc;
+
 pub use endpoint::{
     document::{DocumentStatusResp, DocumentTranslateStatus, UploadDocumentResp},
     translate::{TagHandling, TranslateTextResp},
@@ -58,8 +60,13 @@ pub use reqwest;
 ///                 .client(client)              // use a http client with 30 secs timeout
 ///                 .build();
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DeepLApi {
+    inner: Arc<DeepLApiInner>,
+}
+
+#[derive(Debug)]
+pub struct DeepLApiInner {
     client: reqwest::Client,
     key: String,
     endpoint: reqwest::Url,
@@ -68,12 +75,20 @@ pub struct DeepLApi {
 impl DeepLApi {
     /// Create a new api instance with auth key. If you are paid user, pass `true` into the second
     /// parameter.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(key: &str) -> DeepLApiBuilder {
         DeepLApiBuilder::new(key.to_string())
     }
 
     fn post(&self, url: reqwest::Url) -> reqwest::RequestBuilder {
-        self.client.post(url).header("Authorization", &self.key)
+        self.inner
+            .client
+            .post(url)
+            .header("Authorization", &self.inner.key)
+    }
+
+    fn get_endpoint(&self, route: &str) -> reqwest::Url {
+        self.inner.endpoint.join(route).unwrap()
     }
 }
 
@@ -110,10 +125,14 @@ impl DeepLApiBuilder {
             "https://api-free.deepl.com/v2/"
         };
 
-        DeepLApi {
+        let inner = DeepLApiInner {
             key: format!("DeepL-Auth-Key {}", self.key),
             client,
             endpoint: reqwest::Url::parse(endpoint).unwrap(),
+        };
+
+        DeepLApi {
+            inner: Arc::new(inner),
         }
     }
 }

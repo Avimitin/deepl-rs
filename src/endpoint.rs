@@ -36,11 +36,6 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 /// Pollable alias to a Pin<Box<dyn Future<...>>>. A convenient type for impl [`Future`] trait
 type Pollable<'poll, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'poll>>;
 
-/// ToPollable trait require type implemented this return a impl [`Future`] for manually polling
-trait ToPollable<T> {
-    fn to_pollable(&mut self) -> Pollable<T>;
-}
-
 /// Create endpoint request param builder struct. It will automatically call `.poll()` for the
 /// builder struct, thus user can call `.await` to auto send request.
 ///
@@ -87,18 +82,6 @@ macro_rules! impl_requester {
                     }
                 )+
             }
-
-            impl<'a> std::future::Future for [<$name Requester>]<'a> {
-                type Output = $fut_ret;
-
-                fn poll(
-                    mut self: std::pin::Pin<&mut Self>,
-                    cx: &mut std::task::Context<'_>,
-                ) -> std::task::Poll<Self::Output> {
-                    let mut fut = self.to_pollable();
-                    fut.as_mut().poll(cx)
-                }
-            }
         }
     };
 }
@@ -125,6 +108,7 @@ impl AsRef<str> for Formality {
     }
 }
 
+// TODO: impl Display
 impl ToString for Formality {
     fn to_string(&self) -> String {
         self.as_ref().to_string()

@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, future::IntoFuture};
 
 use crate::{
-    endpoint::{Pollable, Result, ToPollable},
+    endpoint::{Pollable, Result},
     impl_requester, Lang,
 };
 
@@ -107,80 +107,96 @@ impl_requester! {
     } -> Result<TranslateTextResp, Error>;
 }
 
-impl<'a> ToPollable<Result<TranslateTextResp>> for TranslateRequester<'a> {
-    fn to_pollable(&mut self) -> Pollable<Result<TranslateTextResp>> {
-        Box::pin(self.send())
+impl<'a> IntoFuture for TranslateRequester<'a> {
+    type Output = Result<TranslateTextResp>;
+    type IntoFuture = Pollable<'a, Self::Output>;
+
+    fn into_future(mut self) -> Self::IntoFuture {
+        self.send()
+    }
+}
+
+impl<'a> IntoFuture for &mut TranslateRequester<'a> {
+    type Output = Result<TranslateTextResp>;
+    type IntoFuture = Pollable<'a, Self::Output>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        self.send()
     }
 }
 
 impl<'a> TranslateRequester<'a> {
-    async fn send(&self) -> Result<TranslateTextResp, Error> {
+    fn to_form(&self) -> HashMap<&'static str, String> {
         let mut param = HashMap::new();
-        param.insert("text", self.text.as_str());
+        param.insert("text", self.text.to_string());
 
         if let Some(la) = &self.source_lang {
-            param.insert("source_lang", la.as_ref());
+            param.insert("source_lang", la.as_ref().to_string());
         }
 
-        param.insert("target_lang", &self.target_lang.as_ref());
+        param.insert("target_lang", self.target_lang.as_ref().to_string());
 
         if let Some(ss) = &self.split_sentences {
-            param.insert("split_sentences", ss.as_ref());
+            param.insert("split_sentences", ss.as_ref().to_string());
         }
 
         if let Some(pf) = &self.preserve_formatting {
-            param.insert("preserve_formatting", pf.as_ref());
+            param.insert("preserve_formatting", pf.as_ref().to_string());
         }
 
         if let Some(id) = &self.glossary_id {
-            param.insert("glossary_id", id);
+            param.insert("glossary_id", id.to_string());
         }
 
         if let Some(th) = &self.tag_handling {
-            param.insert("tag_handling", th.as_ref());
+            param.insert("tag_handling", th.as_ref().to_string());
         }
 
-        let ns_tags: String;
         if let Some(tags) = &self.non_splitting_tags {
             if !tags.is_empty() {
-                ns_tags = tags.join(",");
-                param.insert("non_splitting_tags", &ns_tags);
+                param.insert("non_splitting_tags", tags.join(","));
             }
         }
 
-        let sp_tags: String;
         if let Some(tags) = &self.splitting_tags {
             if !tags.is_empty() {
-                sp_tags = tags.join(",");
-                param.insert("splitting_tags", &sp_tags);
+                param.insert("splitting_tags", tags.join(","));
             }
         }
 
-        let ig_tags: String;
         if let Some(tags) = &self.ignore_tags {
             if !tags.is_empty() {
-                ig_tags = tags.join(",");
-                param.insert("ignore_tags", &ig_tags);
+                param.insert("ignore_tags", tags.join(","));
             }
         }
 
-        let response = self
-            .client
-            .post(self.client.endpoint.join("translate").unwrap())
-            .form(&param)
-            .send()
-            .await
-            .map_err(|err| Error::RequestFail(err.to_string()))?;
+        param
+    }
 
-        if !response.status().is_success() {
-            return super::extract_deepl_error(response).await;
-        }
+    fn send(&mut self) -> Pollable<'a, Result<TranslateTextResp>> {
+        let client = self.client.clone();
+        let form = self.to_form();
 
-        let response: TranslateTextResp = response.json().await.map_err(|err| {
-            Error::InvalidResponse(format!("convert json bytes to Rust type: {err}"))
-        })?;
+        let fut = async move {
+            let response = client
+                .post(client.inner.endpoint.join("translate").unwrap())
+                .form(&form)
+                .send()
+                .await
+                .map_err(|err| Error::RequestFail(err.to_string()))?;
 
-        Ok(response)
+            if !response.status().is_success() {
+                return super::extract_deepl_error(response).await;
+            }
+
+            let response: TranslateTextResp = response.json().await.map_err(|err| {
+                Error::InvalidResponse(format!("convert json bytes to Rust type: {err}"))
+            })?;
+
+            Ok(response)
+        };
+
+        Box::pin(fut)
     }
 }
 
