@@ -16,14 +16,9 @@ deepl = "0.4.0"
 ```rust
 use deepl::{DeepLApi, Lang};
 
-let api = DeepLApi::new("YOUR AUTH KEY");
-
-let props = TranslateTextProp::builder()
-                .target_lang(Lang::ZH)
-                .build();
-let translated = api.translate("Hello World", &props).await.unwrap();
-
-assert!(!translated.translations.is_empty());
+let api = DeepLApi::with("YOUR AUTH KEY").new();
+let translated = api.translate_text("Hello World", Lang::ZH)
+                .await.unwrap();
 
 let sentences = translated.translations;
 assert_eq!(sentences[0].text, "你好，世界");
