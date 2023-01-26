@@ -10,7 +10,7 @@ Typed HTTP wrapper for interacting with DeepL API. File upload/download is also 
 
 ```toml
 [dependencies]
-deepl = "0.3.0"
+deepl = "0.4.0"
 ```
 
 ```rust
@@ -28,6 +28,8 @@ assert!(!translated.translations.is_empty());
 let sentences = translated.translations;
 assert_eq!(sentences[0].text, "你好，世界");
 ```
+
+Read [examples](./examples) for more usage.
 
 ## License
 
