@@ -390,12 +390,23 @@ async fn test_upload_document() {
 
 #[tokio::test]
 async fn test_upload_docx() {
-    use pretty_assertions::assert_eq;
+    use docx_rs::{read_docx, DocumentChild, Docx, Paragraph, ParagraphChild, Run, RunChild};
+
     let key = std::env::var("DEEPL_API_KEY").unwrap();
     let api = DeepLApi::new(&key).build();
 
-    let test_file = PathBuf::from("./asserts/example.docx");
-    let response = api.upload_document(&test_file, Lang::ZH).await.unwrap();
+    let test_file = PathBuf::from("./example.docx");
+    let file = std::fs::File::create(&test_file).expect("fail to create test asserts");
+    Docx::new()
+        .add_paragraph(
+            Paragraph::new()
+                .add_run(Run::new().add_text("To be, or not to be, that is the question")),
+        )
+        .build()
+        .pack(file)
+        .expect("fail to write test asserts");
+
+    let response = api.upload_document(&test_file, Lang::DE).await.unwrap();
     let mut status = api.check_document_status(&response).await.unwrap();
 
     // wait for translation
@@ -417,6 +428,42 @@ async fn test_upload_docx() {
         .await
         .unwrap();
     let get = tokio::fs::read(&path).await.unwrap();
-    let want = tokio::fs::read("./asserts/expected.docx").await.unwrap();
-    assert_eq!(get, want);
+    let doc = read_docx(&get).expect("can not open downloaded document");
+    let text = doc
+        .document
+        .children
+        .iter()
+        .filter_map(|child| {
+            if let DocumentChild::Paragraph(paragraph) = child {
+                let text = paragraph
+                    .children
+                    .iter()
+                    .filter_map(|pchild| {
+                        if let ParagraphChild::Run(run) = pchild {
+                            let text = run
+                                .children
+                                .iter()
+                                .filter_map(|rchild| {
+                                    if let RunChild::Text(text) = rchild {
+                                        Some(text.text.to_string())
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect::<String>();
+
+                            Some(text)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<String>();
+                Some(text)
+            } else {
+                None
+            }
+        })
+        .collect::<String>();
+
+    assert_eq!(text, "Sein oder nicht sein, das ist hier die Frage");
 }
