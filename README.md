@@ -10,7 +10,7 @@ Typed HTTP wrapper for interacting with DeepL API. File upload/download is also 
 
 ```toml
 [dependencies]
-deepl = "0.4.0"
+deepl = "0.4"
 ```
 
 ```rust

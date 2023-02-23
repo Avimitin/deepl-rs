@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.4.1] - 2023-02-23
+
+- Add `Clone` derive for `Lang`
+
 ## [v0.4.0] - 2023-01-26
 
 ### Changed
