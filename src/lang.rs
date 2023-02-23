@@ -18,7 +18,7 @@ macro_rules! generate_langs {
     ) => {
         paste! {
             #[allow(non_camel_case_types)]
-            #[derive(Debug, PartialEq, Eq, Serialize)]
+            #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
             #[serde(rename_all = "SCREAMING-KEBAB-CASE")]
             pub enum Lang {
                 $(
