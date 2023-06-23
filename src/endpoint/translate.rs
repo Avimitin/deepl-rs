@@ -1,7 +1,7 @@
 use std::{collections::HashMap, future::IntoFuture};
 
 use crate::{
-    endpoint::{Pollable, Result},
+    endpoint::{Formality, Pollable, Result},
     impl_requester, Lang,
 };
 
@@ -111,6 +111,7 @@ impl_requester! {
             source_lang: Lang,
             split_sentences: SplitSentences,
             preserve_formatting: PreserveFormatting,
+            formality: Formality,
             glossary_id: String,
             tag_handling: TagHandling,
             non_splitting_tags: Vec<String>,
@@ -155,6 +156,10 @@ impl<'a> TranslateRequester<'a> {
 
         if let Some(pf) = &self.preserve_formatting {
             param.insert("preserve_formatting", pf.as_ref().to_string());
+        }
+
+        if let Some(fm) = &self.formality {
+            param.insert("formality", fm.as_ref().to_string());
         }
 
         if let Some(id) = &self.glossary_id {
@@ -319,4 +324,49 @@ async fn test_advanced_translator_html() {
         "Hallo Welt <keep translate=\"no\">This will stay exactly the way it was</keep>"
     );
     assert_eq!(translated_results[0].detected_source_language, Lang::EN);
+}
+
+#[tokio::test]
+async fn test_formality() {
+    let api = DeepLApi::with(
+        &std::env::var("DEEPL_API_KEY").unwrap()
+    )
+    .new();
+
+    // sends and returns a formality
+    let text = "How are you?";
+    let src = Lang::EN;
+    let trg = Lang::ES;
+    let more = Formality::More;
+    
+    let response = api.translate_text(text, trg)
+        .source_lang(src)
+        .formality(more)
+        .await
+        .unwrap();
+    
+    assert!(!response.translations.is_empty());
+    assert_eq!(
+        response.translations[0].text,
+        "¿Cómo está?"
+    );
+    
+    // response ok, despite target lang not supporting formality
+    let text = "¿Cómo estás?";
+    let src = Lang::ES;
+    let trg = Lang::EN_US;
+    let less = Formality::PreferLess;
+    
+    let response = api.translate_text(text, trg)
+        .source_lang(src)
+        .formality(less)
+        .await
+        .unwrap();
+    
+    assert!(!response.translations.is_empty());
+    assert_eq!(
+        response.translations[0].text,
+        "How are you doing?"
+    );
+
 }
