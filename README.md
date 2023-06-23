@@ -26,6 +26,18 @@ assert_eq!(sentences[0].text, "你好，世界");
 
 Read [examples](./examples) for more usage.
 
+## Collaboration
+
+If you find any bugs in this project or feel confused about any part of the code,
+feel free to open new issue.
+
+If you want to submit some code modification but don't know how to setup the
+code environment, you can follow the
+[Nix Installation](https://nixos.org/manual/nix/stable/installation/installing-binary.html#installing-a-binary-distribution)
+and [enable flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes).
+Then simply run `nix develop` in the project root, all the build dependencies will setup
+for you.
+
 ## License
 
 [MIT](./LICENSE)
