@@ -1,14 +1,16 @@
 //! # deepl-rs
 //!
-//! Deepl-rs is a simple library for making request to the DeepL API endpoint easier.
-//! And it also providing types wrapping to guarantee runtime safety.
+//! Deepl-rs is a simple library for making requests to the DeepL API endpoint easier.
+//! And it also provides types wrapping to guarantee runtime safety.
 //!
-//! This is still a **WORK IN PROGRESS** library, please open a issue on GitHub to tell
-//! me what feature you want. Also breaking changes will also be released frequently.
+//! This is still a **WORK IN PROGRESS** library, please open an issue on GitHub to request
+//! features. Be aware breaking changes will be released frequently.
 //!
 //! # Usage
 //!
 //! ```rust
+//! use deepl::DeepLApi;
+//!
 //! let key = std::env::var("DEEPL_API_KEY").unwrap();
 //! let api = DeepLApi::with(&key).new();
 //! let response = api.translate_text("Hello World", Lang::ZH).await.unwrap();
@@ -16,7 +18,7 @@
 //! assert!(!response.translations.is_empty());
 //! ```
 //!
-//! See [`DeepLApi`] for detail usage.
+//! See [`DeepLApi`] for detailed usage.
 //!
 //! # License
 //!
@@ -40,7 +42,7 @@ pub use reqwest;
 //-
 
 /// A struct that contains necessary data for runtime. Data is stored in
-/// [`Arc`], so it is cheap to clone in your Apps code.
+/// [`Arc`], so it is cheap to clone in your App's code.
 ///
 /// # Example
 ///
@@ -55,7 +57,7 @@ pub use reqwest;
 ///         .build()
 ///         .unwrap();
 ///
-/// // use the pro version API, and custom the client with
+/// // use the pro version API, and a custom client with
 /// // 30 secs timeout
 /// let deepl = DeepLApi::with("Your DeepL Key")
 ///                 .is_pro(true)

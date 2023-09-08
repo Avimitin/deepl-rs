@@ -236,7 +236,6 @@ impl DeepLApi {
     /// let deepl = DeepLApi::with(&key).new();
     ///
     /// let response = deepl.translate_text("Hello World", Lang::ZH).await.unwrap();
-    ///
     /// assert!(!response.translations.is_empty());
     /// ```
     ///
@@ -245,9 +244,11 @@ impl DeepLApi {
     /// ```rust
     /// use deepl::{DeepLApi, Lang};
     ///
-    /// let api = DeepLApi::new("YOUR AUTH KEY", false);
+    /// let key = std::env::var("DEEPL_API_KEY").unwrap();
+    /// let deepl = DeepLApi::with(&key).new();
+    ///
     /// let str = "Hello World <keep>This will stay exactly the way it was</keep>";
-    /// let response = api
+    /// let response = deepl
     ///     .translate_text(str, Lang::DE)
     ///     .source_lang(Lang::EN)
     ///     .ignore_tags(vec!["keep".to_owned()])
