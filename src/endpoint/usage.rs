@@ -15,10 +15,11 @@ impl DeepLApi {
     /// # Example
     ///
     /// ```rust
-    /// use deepl::DeepLApi
+    /// use deepl::DeepLApi;
     ///
-    /// let api = DeepLApi::new("Your DeepL Token", false);
-    /// let response = api.get_usage().await.unwrap();
+    /// let key = std::env::var("DEEPL_API_KEY").unwrap();
+    /// let deepl = DeepLApi::with(&key).new();
+    /// let response = deepl.get_usage().await.unwrap();
     ///
     /// assert_ne!(response.character_count, 0);
     /// ```

@@ -126,7 +126,7 @@ impl<'a> UploadDocumentRequester<'a> {
             } else {
                 part = part.file_name(file_path.file_name().expect(
                     "No extension found for this file, and no filename given, cannot make request",
-                ).to_str().expect("no a valid UTF-8 filepath!").to_string());
+                ).to_str().expect("not a valid UTF-8 filepath!").to_string());
             }
 
             form = form.part("file", part);
@@ -172,28 +172,29 @@ impl<'a> IntoFuture for &mut UploadDocumentRequester<'a> {
 
 impl DeepLApi {
     /// Upload document to DeepL API server, return [`UploadDocumentResp`] for
-    /// quering the translation status and to download the translated document once
+    /// querying the translation status and to download the translated document once
     /// translation is complete.
     ///
     /// # Example
     ///
     /// ```rust
-    /// use deepl::DeepLApi
+    /// use deepl::DeepLApi;
     ///
-    /// let api = DeepLApi::with(&key).new();
+    /// let key = std::env::var("DEEPL_API_KEY").unwrap();
+    /// let deepl = DeepLApi::with(&key).new();
     ///
     /// // Upload the file to DeepL
     /// let filepath = std::path::PathBuf::from("./hamlet.txt");
-    /// let response = api.upload_document(&filepath, Lang::ZH)
-    ///         .source_lang(Lang::EN_GB)
-    ///         .filename("Hamlet.txt")
+    /// let response = deepl.upload_document(&filepath, Lang::ZH)
+    ///         .source_lang(Lang::EN)
+    ///         .filename("Hamlet.txt".to_string())
     ///         .formality(Formality::Default)
-    ///         .glossary_id("def3a26b-3e84-45b3-84ae-0c0aaf3525f7")
+    ///         .glossary_id("def3a26b-3e84-45b3-84ae-0c0aaf3525f7".to_string())
     ///         .await
     ///         .unwrap();
     /// ```
     ///
-    /// Read the example `upload_document` in repository for detail usage
+    /// Read the example `upload_document` in repository for detailed usage
     pub fn upload_document(
         &self,
         fp: impl Into<std::path::PathBuf>,

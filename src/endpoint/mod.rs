@@ -83,6 +83,7 @@ macro_rules! impl_requester {
     };
 }
 
+/// Formality preference for translation
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Formality {
