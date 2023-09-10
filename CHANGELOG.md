@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.4.3] - 2023-09-11
+
+- Improve code document
+
+## [v0.4.2] - 2023-06-23
+
+- Include formality in impl_requester
+
 ## [v0.4.1] - 2023-02-23
 
 - Add `Clone` derive for `Lang`
