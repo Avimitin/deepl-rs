@@ -115,8 +115,10 @@ generate_langs! {
     ("ID",    "Indonesian");
     ("IT",    "Italian");
     ("JA",    "Japanese");
+    ("KO",    "Korean");
     ("LT",    "Lithuanian");
     ("LV",    "Latvian");
+    ("NB",    "Norwegian");
     ("NL",    "Dutch");
     ("PL",    "Polish");
     ("PT",    "Portuguese (all Portuguese varieties mixed)");
