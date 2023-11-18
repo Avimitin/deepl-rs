@@ -72,3 +72,31 @@ async fn test_get_languages() {
     let langs = deepl.languages(LangType::Target).await.unwrap();
     assert!(!langs.is_empty());
 }
+
+#[tokio::test]
+async fn test_generate_langs() {
+    use crate::Lang;
+    let deepl = DeepLApi::with(&std::env::var("DEEPL_API_KEY").unwrap()).new();
+
+    // fetch source langs
+    let source_langs = deepl.languages(LangType::Source).await.unwrap();
+    let codes: Vec<&str> = source_langs.iter().map(|l| l.language.as_str()).collect();
+
+    // fetch target langs, filtering same lang code
+    let mut target_langs = deepl.languages(LangType::Target).await.unwrap();
+    target_langs.retain(|l| !codes.contains(&l.language.as_str()));
+
+    // iterate `LangInfo`s and try to create a `Lang`.
+    // prints the missing lang to stdout in case of error
+    let _: Vec<Lang> = source_langs
+        .into_iter()
+        .chain(target_langs)
+        .map(|l| {
+            let code = &l.language;
+            let name = &l.name;
+            Lang::try_from(code)
+                .map_err(|_| println!("Failed to convert lang: {code} {name}"))
+                .unwrap()
+        })
+        .collect();
+}
