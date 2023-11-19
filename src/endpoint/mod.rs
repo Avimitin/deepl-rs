@@ -3,6 +3,7 @@ use std::{future::Future, pin::Pin};
 use thiserror::Error;
 
 pub mod document;
+pub mod languages;
 pub mod translate;
 pub mod usage;
 

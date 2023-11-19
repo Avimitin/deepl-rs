@@ -33,6 +33,7 @@ use std::sync::Arc;
 //- Type Re-exporting
 pub use endpoint::{
     document::{DocumentStatusResp, DocumentTranslateStatus, UploadDocumentResp},
+    languages::{LangInfo, LangType},
     translate::{TagHandling, TranslateTextResp},
     usage::UsageResponse,
     Error, Formality,
@@ -87,6 +88,13 @@ impl DeepLApi {
         self.inner
             .client
             .post(url)
+            .header("Authorization", &self.inner.key)
+    }
+
+    fn get(&self, url: reqwest::Url) -> reqwest::RequestBuilder {
+        self.inner
+            .client
+            .get(url)
             .header("Authorization", &self.inner.key)
     }
 
