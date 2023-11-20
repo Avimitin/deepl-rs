@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.4 - 2023-11-20
+
+- Add new `languages` endpoint
+- Add `KO` and `NB` language variant
+
 ## [v0.4.3] - 2023-09-11
 
 - Improve code document
