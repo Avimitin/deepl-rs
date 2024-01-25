@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.4.5 - 2024-01-26
+- Re-export the `LangConvertError` struct
+
 ## v0.4.4 - 2023-11-20
 
 - Add new `languages` endpoint
