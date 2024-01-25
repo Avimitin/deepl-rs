@@ -38,7 +38,7 @@ pub use endpoint::{
     usage::UsageResponse,
     Error, Formality,
 };
-pub use lang::Lang;
+pub use lang::{Lang, LangConvertError};
 pub use reqwest;
 //-
 
