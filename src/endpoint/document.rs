@@ -60,7 +60,7 @@ impl DocumentTranslateStatus {
 }
 
 impl_requester! {
-    UploadDocument {
+    UploadDocumentRequester {
         @must{
             file_path: PathBuf,
             target_lang: Lang,

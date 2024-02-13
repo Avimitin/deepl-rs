@@ -6,6 +6,7 @@ pub mod document;
 pub mod languages;
 pub mod translate;
 pub mod usage;
+pub mod glossaries;
 
 /// Representing error during interaction with DeepL
 #[derive(Debug, Error)]
@@ -56,14 +57,14 @@ macro_rules! impl_requester {
 
         paste! {
             #[doc = "Builder type for `" $name "`"]
-            pub struct [<$name Requester>]<'a> {
+            pub struct $name<'a> {
                 client: &'a DeepLApi,
 
                 $($must_field: $must_type,)+
                 $($opt_field: Option<$opt_type>,)+
             }
 
-            impl<'a> [<$name Requester>]<'a> {
+            impl<'a> $name<'a> {
                 pub fn new(client: &'a DeepLApi, $($must_field: $must_type,)+) -> Self {
                     Self {
                         client,
