@@ -8,7 +8,8 @@ use typed_builder::TypedBuilder;
 use super::Pollable;
 
 #[derive(Debug, TypedBuilder)]
-pub struct CreateGlossaryField<'a> {
+#[builder(build_method(name = send))]
+pub struct CreateGlossary<'a> {
     client: &'a DeepLApi,
 
     name: String,
@@ -23,65 +24,31 @@ pub struct CreateGlossaryField<'a> {
     format: EntriesFormat,
 }
 
-type GlossaryBuilderStart<'a> =
-    CreateGlossaryFieldBuilder<'a, ((&'a DeepLApi,), (String,), (), (), ())>;
+type CreateGlossaryBuilderStart<'a> =
+    CreateGlossaryBuilder<'a, ((&'a DeepLApi,), (String,), (), (), ())>;
 
-type GlossaryFieldReady<'a> = CreateGlossaryFieldBuilder<
-    'a,
-    (
-        (&'a DeepLApi,),
-        (String,),
-        ((String, Lang),),
-        ((String, Lang),),
-        (),
-    ),
->;
+impl<'a> IntoFuture for CreateGlossary<'a> {
+    type Output = Result<CreateGloassaryResp>;
+    type IntoFuture = Pollable<'a, Self::Output>;
 
-type GlossaryFieldReadyWithFormat<'a> = CreateGlossaryFieldBuilder<
-    'a,
-    (
-        (&'a DeepLApi,),
-        (String,),
-        ((String, Lang),),
-        ((String, Lang),),
-        (EntriesFormat,),
-    ),
->;
+    fn into_future(self) -> Self::IntoFuture {
+        let client = self.client.clone();
+        let fields = CreateGlossaryRequestParam::from(self);
+        let fut = async move {
+            let resp = client
+                        .post(client.inner.endpoint.join("glossary").unwrap())
+                        .json(&fields)
+                        .send()
+                        .await
+                        .map_err(|err| Error::RequestFail(err.to_string()))?
+                        .json::<CreateGloassaryResp>()
+                        .await
+                        .expect("Unmathched response to CreateGloassaryResp, please open issue on https://github.com/Avimitin/deepl.");
+            Ok(resp)
+        };
 
-macro_rules! multi_stage_impl {
-    ($($tpe:ident,)+) => {
-        $(
-            impl<'a> IntoFuture for $tpe<'a> {
-                type Output = Result<CreateGloassaryResp>;
-                type IntoFuture = Pollable<'a, Self::Output>;
-
-                fn into_future(self) -> Self::IntoFuture {
-                    let fields = self.build();
-                    let client = fields.client.clone();
-                    let fields = CreateGlossaryRequestParam::from(fields);
-                    let fut = async move {
-                        let resp = client
-                            .post(client.inner.endpoint.join("glossary").unwrap())
-                            .json(&fields)
-                            .send()
-                            .await
-                            .map_err(|err| Error::RequestFail(err.to_string()))?
-                            .json::<CreateGloassaryResp>()
-                            .await
-                            .expect("Unmathched response to CreateGloassaryResp, please open issue on https://github.com/Avimitin/deepl.");
-                        Ok(resp)
-                    };
-
-                    Box::pin(fut)
-                }
-            }
-        )+
-    };
-}
-
-multi_stage_impl! {
-    GlossaryFieldReady,
-    GlossaryFieldReadyWithFormat,
+        Box::pin(fut)
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -104,8 +71,8 @@ struct CreateGlossaryRequestParam {
     entries_format: String,
 }
 
-impl<'a> From<CreateGlossaryField<'a>> for CreateGlossaryRequestParam {
-    fn from(value: CreateGlossaryField<'a>) -> Self {
+impl<'a> From<CreateGlossary<'a>> for CreateGlossaryRequestParam {
+    fn from(value: CreateGlossary<'a>) -> Self {
         CreateGlossaryRequestParam {
             name: value.name,
             source_lang: value.source.1.to_string(),
@@ -143,21 +110,22 @@ impl DeepLApi {
     /// # Example
     ///
     /// ```rust
-    /// use deepl::{DeepLApi, Lang, glossary::EntriesFormat};
+    /// use crate::{glossary::EntriesFormat, DeepLApi, Lang};
     ///
     /// let key = std::env::var("DEEPL_API_KEY").unwrap();
     /// let deepl = DeepLApi::with(&key).new();
     ///
-    /// let response = deepl
+    /// let _: CreateGloassaryResp = deepl
     ///     .create_glossary("My Gloassary")
     ///     .source("Hello", Lang::EN)
     ///     .target("Guten Tag", Lang::DE)
     ///     .format(EntriesFormat::CSV) // This field is optional, we will use TSV as default.
+    ///     .send()
     ///     .await
     ///     .unwrap();
     /// ```
-    pub fn create_glossary(&self, name: impl ToString) -> GlossaryBuilderStart {
-        CreateGlossaryField::builder()
+    pub fn create_glossary(&self, name: impl ToString) -> CreateGlossaryBuilderStart {
+        CreateGlossary::builder()
             .client(self)
             .name(name.to_string())
     }
@@ -175,6 +143,7 @@ async fn test_create_gloassary() {
         .source("Hello", Lang::EN)
         .target("Guten Tag", Lang::DE)
         .format(EntriesFormat::CSV) // This field is optional, we will use TSV as default.
+        .send()
         .await
         .unwrap();
 }
