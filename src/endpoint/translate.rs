@@ -103,7 +103,7 @@ impl AsRef<str> for TagHandling {
 
 impl_requester! {
     TranslateRequester {
-        @must{
+        @required{
             text: String,
             target_lang: Lang,
         };

@@ -44,11 +44,11 @@ type Pollable<'poll, T> = Pin<Box<dyn Future<Output = T> + Send + Sync + 'poll>>
 macro_rules! impl_requester {
     (
         $name:ident {
-            @must{
+            @required{
                 $($must_field:ident: $must_type:ty,)+
             };
             @optional{
-                $($opt_field:ident: $opt_type:ty,)+
+                $($opt_field:ident: $opt_type:ty,)*
             };
         } -> $fut_ret:ty;
     ) => {
@@ -61,7 +61,7 @@ macro_rules! impl_requester {
                 client: &'a DeepLApi,
 
                 $($must_field: $must_type,)+
-                $($opt_field: Option<$opt_type>,)+
+                $($opt_field: Option<$opt_type>,)*
             }
 
             impl<'a> $name<'a> {
@@ -69,7 +69,7 @@ macro_rules! impl_requester {
                     Self {
                         client,
                         $($must_field,)+
-                        $($opt_field: None,)+
+                        $($opt_field: None,)*
                     }
                 }
 
@@ -79,7 +79,7 @@ macro_rules! impl_requester {
                         self.$opt_field = Some($opt_field);
                         self
                     }
-                )+
+                )*
             }
         }
     };
