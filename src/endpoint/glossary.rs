@@ -3,6 +3,7 @@ use crate::{
     DeepLApi, Lang,
 };
 use core::future::IntoFuture;
+use std::collections::HashMap;
 use typed_builder::TypedBuilder;
 
 use super::Pollable;
@@ -28,7 +29,7 @@ type CreateGlossaryBuilderStart<'a> =
     CreateGlossaryBuilder<'a, ((&'a DeepLApi,), (String,), (), (), ())>;
 
 impl<'a> IntoFuture for CreateGlossary<'a> {
-    type Output = Result<CreateGloassaryResp>;
+    type Output = Result<CreateGlossaryResp>;
     type IntoFuture = Pollable<'a, Self::Output>;
 
     fn into_future(self) -> Self::IntoFuture {
@@ -41,7 +42,7 @@ impl<'a> IntoFuture for CreateGlossary<'a> {
                         .send()
                         .await
                         .map_err(|err| Error::RequestFail(err.to_string()))?
-                        .json::<CreateGloassaryResp>()
+                        .json::<CreateGlossaryResp>()
                         .await
                         .expect("Unmathched response to CreateGloassaryResp, please open issue on https://github.com/Avimitin/deepl.");
             Ok(resp)
@@ -52,12 +53,12 @@ impl<'a> IntoFuture for CreateGlossary<'a> {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-pub struct CreateGloassaryResp {
+pub struct CreateGlossaryResp {
     gloassary_id: String,
     name: String,
     ready: bool,
-    source_lang: String,
-    target_lang: String,
+    source_lang: Lang,
+    target_lang: Lang,
     creation_time: String,
     entry_count: u64,
 }
@@ -129,6 +130,21 @@ impl DeepLApi {
             .client(self)
             .name(name.to_string())
     }
+
+    /// List all glossaries and their meta-information, but not the glossary entries.
+    pub async fn list_all_glossaries(&self) -> Result<Vec<CreateGlossaryResp>> {
+        Ok(
+            self.get(self.inner.endpoint.join("glossaries").unwrap())
+                .send()
+                .await
+                .map_err(|e| Error::RequestFail(e.to_string()))?
+                .json::<HashMap<String, Vec<CreateGlossaryResp>>>()
+                .await
+                .expect("Unmatched type HashMap<String, Vec<CreateGloassaryResp>> to DeepL response. Please open issue on https://github.com/Avimitin/deepl.")
+                .remove("glossaries")
+                .expect("Unmatched DeepL response, expect glossaries key to unwrap. Please open issue on https://github.com/Avimitin/deepl."),
+        )
+    }
 }
 
 #[tokio::test]
@@ -138,7 +154,7 @@ async fn test_create_gloassary() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
     let deepl = DeepLApi::with(&key).new();
 
-    let _: CreateGloassaryResp = deepl
+    let _: CreateGlossaryResp = deepl
         .create_glossary("My Gloassary")
         .source("Hello", Lang::EN)
         .target("Guten Tag", Lang::DE)
