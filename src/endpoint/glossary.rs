@@ -154,6 +154,20 @@ impl DeepLApi {
                 .expect("Unmatched DeepL response, expect glossaries key to unwrap. Please open issue on https://github.com/Avimitin/deepl."),
         )
     }
+
+    /// Retrieve meta information for a single glossary, omitting the glossary entries.
+    /// Require a unique ID assigned to the glossary.
+    pub async fn retrieve_glossary_details(&self, id: String) -> Result<GlossaryResp> {
+        Ok(
+            self.get(self.inner.endpoint.join(&format!("glossaries/{id}")).unwrap())
+                .send()
+                .await
+                .map_err(|e| Error::RequestFail(e.to_string()))?
+                .json::<GlossaryResp>()
+                .await
+                .expect("Unmatched DeepL response to type GlossaryResp. Please open issue on https://github.com/Avimitin/deepl."),
+        )
+    }
 }
 
 #[tokio::test]
