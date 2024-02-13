@@ -37,7 +37,7 @@ impl<'a> IntoFuture for CreateGlossary<'a> {
         let fields = CreateGlossaryRequestParam::from(self);
         let fut = async move {
             let resp = client
-                        .post(client.inner.endpoint.join("glossary").unwrap())
+                        .post(client.get_endpoint("glossary"))
                         .json(&fields)
                         .send()
                         .await
@@ -143,7 +143,7 @@ impl DeepLApi {
     /// List all glossaries and their meta-information, but not the glossary entries.
     pub async fn list_all_glossaries(&self) -> Result<Vec<GlossaryResp>> {
         Ok(
-            self.get(self.inner.endpoint.join("glossaries").unwrap())
+            self.get(self.get_endpoint("glossaries"))
                 .send()
                 .await
                 .map_err(|e| Error::RequestFail(e.to_string()))?
@@ -159,7 +159,7 @@ impl DeepLApi {
     /// Require a unique ID assigned to the glossary.
     pub async fn retrieve_glossary_details(&self, id: String) -> Result<GlossaryResp> {
         Ok(
-            self.get(self.inner.endpoint.join(&format!("glossaries/{id}")).unwrap())
+            self.get(self.get_endpoint(&format!("glossaries/{id}")))
                 .send()
                 .await
                 .map_err(|e| Error::RequestFail(e.to_string()))?
