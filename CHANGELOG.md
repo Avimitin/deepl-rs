@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.6 - 2024-02-14
+
+- Implement all the glossaries related API
+
 ## v0.4.5 - 2024-01-26
 - Re-export the `LangConvertError` struct
 
