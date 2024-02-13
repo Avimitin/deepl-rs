@@ -329,45 +329,37 @@ async fn test_advanced_translator_html() {
 
 #[tokio::test]
 async fn test_formality() {
-    let api = DeepLApi::with(
-        &std::env::var("DEEPL_API_KEY").unwrap()
-    )
-    .new();
+    let api = DeepLApi::with(&std::env::var("DEEPL_API_KEY").unwrap()).new();
 
     // sends and returns a formality
     let text = "How are you?";
     let src = Lang::EN;
     let trg = Lang::ES;
     let more = Formality::More;
-    
-    let response = api.translate_text(text, trg)
+
+    let response = api
+        .translate_text(text, trg)
         .source_lang(src)
         .formality(more)
         .await
         .unwrap();
-    
+
     assert!(!response.translations.is_empty());
-    assert_eq!(
-        response.translations[0].text,
-        "¿Cómo está?"
-    );
-    
+    assert_eq!(response.translations[0].text, "¿Cómo está?");
+
     // response ok, despite target lang not supporting formality
     let text = "¿Cómo estás?";
     let src = Lang::ES;
     let trg = Lang::EN_US;
     let less = Formality::PreferLess;
-    
-    let response = api.translate_text(text, trg)
+
+    let response = api
+        .translate_text(text, trg)
         .source_lang(src)
         .formality(less)
         .await
         .unwrap();
-    
-    assert!(!response.translations.is_empty());
-    assert_eq!(
-        response.translations[0].text,
-        "How are you doing?"
-    );
 
+    assert!(!response.translations.is_empty());
+    assert_eq!(response.translations[0].text, "How are you doing?");
 }
