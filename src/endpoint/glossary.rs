@@ -29,7 +29,7 @@ type CreateGlossaryBuilderStart<'a> =
     CreateGlossaryBuilder<'a, ((&'a DeepLApi,), (String,), (), (), ())>;
 
 impl<'a> IntoFuture for CreateGlossary<'a> {
-    type Output = Result<CreateGlossaryResp>;
+    type Output = Result<GlossaryResp>;
     type IntoFuture = Pollable<'a, Self::Output>;
 
     fn into_future(self) -> Self::IntoFuture {
@@ -42,7 +42,7 @@ impl<'a> IntoFuture for CreateGlossary<'a> {
                         .send()
                         .await
                         .map_err(|err| Error::RequestFail(err.to_string()))?
-                        .json::<CreateGlossaryResp>()
+                        .json::<GlossaryResp>()
                         .await
                         .expect("Unmathched response to CreateGloassaryResp, please open issue on https://github.com/Avimitin/deepl.");
             Ok(resp)
@@ -53,7 +53,7 @@ impl<'a> IntoFuture for CreateGlossary<'a> {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-pub struct CreateGlossaryResp {
+pub struct GlossaryResp {
     /// A unique ID assigned to a glossary.
     gloassary_id: String,
     /// Name associated with the glossary.
@@ -141,13 +141,13 @@ impl DeepLApi {
     }
 
     /// List all glossaries and their meta-information, but not the glossary entries.
-    pub async fn list_all_glossaries(&self) -> Result<Vec<CreateGlossaryResp>> {
+    pub async fn list_all_glossaries(&self) -> Result<Vec<GlossaryResp>> {
         Ok(
             self.get(self.inner.endpoint.join("glossaries").unwrap())
                 .send()
                 .await
                 .map_err(|e| Error::RequestFail(e.to_string()))?
-                .json::<HashMap<String, Vec<CreateGlossaryResp>>>()
+                .json::<HashMap<String, Vec<GlossaryResp>>>()
                 .await
                 .expect("Unmatched type HashMap<String, Vec<CreateGloassaryResp>> to DeepL response. Please open issue on https://github.com/Avimitin/deepl.")
                 .remove("glossaries")
@@ -163,7 +163,7 @@ async fn test_create_gloassary() {
     let key = std::env::var("DEEPL_API_KEY").unwrap();
     let deepl = DeepLApi::with(&key).new();
 
-    let _: CreateGlossaryResp = deepl
+    let _: GlossaryResp = deepl
         .create_glossary("My Gloassary")
         .source("Hello", Lang::EN)
         .target("Guten Tag", Lang::DE)
