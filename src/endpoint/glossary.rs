@@ -177,6 +177,23 @@ impl DeepLApi {
             .map_err(|e| Error::RequestFail(e.to_string()))
             .map(|_| ())
     }
+
+    /// List the entries of a single glossary in the format specified by the Accept header.
+    /// Currently, support TSV(tab separated value) only.
+    pub async fn retrieve_glossary_entries(&self, id: String) -> Result<(String, String)> {
+        Ok(self.get(self.get_endpoint(&format!("glossaries/{id}/entries")))
+            .header("Accept", "text/tab-separated-values")
+            .send()
+            .await
+            .map_err(|e| Error::RequestFail(e.to_string()))?
+            .text()
+            .await
+            .map(|resp| {
+                let mut pair = resp.split("\t");
+                (pair.next().unwrap().to_string(), pair.next().unwrap().to_string())
+            })
+            .expect("Fail to retrieve glossary entries. Please open issue on https://github.com/Avimitin/deepl."))
+    }
 }
 
 #[tokio::test]
