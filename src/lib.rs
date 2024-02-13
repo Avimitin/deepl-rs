@@ -85,6 +85,13 @@ impl DeepLApi {
         DeepLApiBuilder::init(key.to_string())
     }
 
+    fn del(&self, url: reqwest::Url) -> reqwest::RequestBuilder {
+        self.inner
+            .client
+            .delete(url)
+            .header("Authorization", &self.inner.key)
+    }
+
     fn post(&self, url: reqwest::Url) -> reqwest::RequestBuilder {
         self.inner
             .client

@@ -168,6 +168,14 @@ impl DeepLApi {
                 .expect("Unmatched DeepL response to type GlossaryResp. Please open issue on https://github.com/Avimitin/deepl."),
         )
     }
+
+    pub async fn delete_glossary(&self, id: String) -> Result<()> {
+        self.del(self.get_endpoint(&format!("glossaries/{id}")))
+            .send()
+            .await
+            .map_err(|e| Error::RequestFail(e.to_string()))
+            .map(|_| ())
+    }
 }
 
 #[tokio::test]
