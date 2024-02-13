@@ -33,6 +33,7 @@ use std::sync::Arc;
 //- Type Re-exporting
 pub use endpoint::{
     document::{DocumentStatusResp, DocumentTranslateStatus, UploadDocumentResp},
+    glossary,
     languages::{LangInfo, LangType},
     translate::{TagHandling, TranslateTextResp},
     usage::UsageResponse,

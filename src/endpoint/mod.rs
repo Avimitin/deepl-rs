@@ -3,10 +3,10 @@ use std::{future::Future, pin::Pin};
 use thiserror::Error;
 
 pub mod document;
+pub mod glossary;
 pub mod languages;
 pub mod translate;
 pub mod usage;
-pub mod glossaries;
 
 /// Representing error during interaction with DeepL
 #[derive(Debug, Error)]
