@@ -54,12 +54,21 @@ impl<'a> IntoFuture for CreateGlossary<'a> {
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct CreateGlossaryResp {
+    /// A unique ID assigned to a glossary.
     gloassary_id: String,
+    /// Name associated with the glossary.
     name: String,
+    /// Indicates if the newly created glossary can already be used in translate requests.
+    /// If the created glossary is not yet ready, you have to wait and check the ready status
+    /// of the glossary before using it in a translate request.
     ready: bool,
+    /// The language in which the source texts in the glossary are specified.
     source_lang: Lang,
+    /// The language in which the target texts in the glossary are specified.
     target_lang: Lang,
+    /// The creation time of the glossary in the ISO 8601-1:2019 format (e.g.: 2021-08-03T14:16:18.329Z).
     creation_time: String,
+    /// The number of entries in the glossary.
     entry_count: u64,
 }
 
