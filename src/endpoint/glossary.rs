@@ -1,6 +1,6 @@
 use crate::{
     endpoint::{Error, Result},
-    DeepLApi, Lang,
+    DeepLApi,
 };
 use core::future::IntoFuture;
 use std::collections::HashMap;
@@ -15,11 +15,11 @@ pub struct CreateGlossary<'a> {
 
     name: String,
 
-    #[builder(setter(transform = |a: impl ToString, b: Lang| (a.to_string(), b)))]
-    source: (String, Lang),
+    #[builder(setter(transform = |a: impl ToString, b: impl ToString| (a.to_string(), b.to_string().to_lowercase())))]
+    source: (String, String),
 
-    #[builder(setter(transform = |a: impl ToString, b: Lang| (a.to_string(), b)))]
-    target: (String, Lang),
+    #[builder(setter(transform = |a: impl ToString, b: impl ToString| (a.to_string(), b.to_string().to_lowercase())))]
+    target: (String, String),
 
     #[builder(default = EntriesFormat::TSV)]
     format: EntriesFormat,
@@ -37,14 +37,14 @@ impl<'a> IntoFuture for CreateGlossary<'a> {
         let fields = CreateGlossaryRequestParam::from(self);
         let fut = async move {
             let resp = client
-                        .post(client.get_endpoint("glossary"))
+                        .post(client.get_endpoint("glossaries"))
                         .json(&fields)
                         .send()
                         .await
                         .map_err(|err| Error::RequestFail(err.to_string()))?
                         .json::<GlossaryResp>()
                         .await
-                        .expect("Unmathched response to CreateGloassaryResp, please open issue on https://github.com/Avimitin/deepl.");
+                        .expect("Unmatched response to CreateGlossaryResp, please open issue on https://github.com/Avimitin/deepl.");
             Ok(resp)
         };
 
@@ -52,10 +52,10 @@ impl<'a> IntoFuture for CreateGlossary<'a> {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GlossaryResp {
     /// A unique ID assigned to a glossary.
-    gloassary_id: String,
+    glossary_id: String,
     /// Name associated with the glossary.
     name: String,
     /// Indicates if the newly created glossary can already be used in translate requests.
@@ -63,9 +63,9 @@ pub struct GlossaryResp {
     /// of the glossary before using it in a translate request.
     ready: bool,
     /// The language in which the source texts in the glossary are specified.
-    source_lang: Lang,
+    source_lang: String,
     /// The language in which the target texts in the glossary are specified.
-    target_lang: Lang,
+    target_lang: String,
     /// The creation time of the glossary in the ISO 8601-1:2019 format (e.g.: 2021-08-03T14:16:18.329Z).
     creation_time: String,
     /// The number of entries in the glossary.
@@ -111,6 +111,12 @@ impl ToString for EntriesFormat {
     }
 }
 
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct GlossaryLanguagePair {
+    source_lang: String,
+    target_lang: String,
+}
+
 impl DeepLApi {
     /// API for endpoint: https://www.deepl.com/de/docs-api/glossaries/create-glossary.
     /// The function for creating a glossary returns a JSON object containing the
@@ -125,8 +131,8 @@ impl DeepLApi {
     /// let key = std::env::var("DEEPL_API_KEY").unwrap();
     /// let deepl = DeepLApi::with(&key).new();
     ///
-    /// let _: CreateGloassaryResp = deepl
-    ///     .create_glossary("My Gloassary")
+    /// let _: CreateGlossaryResp = deepl
+    ///     .create_glossary("My Glossary")
     ///     .source("Hello", Lang::EN)
     ///     .target("Guten Tag", Lang::DE)
     ///     .format(EntriesFormat::CSV) // This field is optional, we will use TSV as default.
@@ -149,7 +155,7 @@ impl DeepLApi {
                 .map_err(|e| Error::RequestFail(e.to_string()))?
                 .json::<HashMap<String, Vec<GlossaryResp>>>()
                 .await
-                .expect("Unmatched type HashMap<String, Vec<CreateGloassaryResp>> to DeepL response. Please open issue on https://github.com/Avimitin/deepl.")
+                .expect("Unmatched type HashMap<String, Vec<CreateGlossaryResp>> to DeepL response. Please open issue on https://github.com/Avimitin/deepl.")
                 .remove("glossaries")
                 .expect("Unmatched DeepL response, expect glossaries key to unwrap. Please open issue on https://github.com/Avimitin/deepl."),
         )
@@ -157,9 +163,9 @@ impl DeepLApi {
 
     /// Retrieve meta information for a single glossary, omitting the glossary entries.
     /// Require a unique ID assigned to the glossary.
-    pub async fn retrieve_glossary_details(&self, id: String) -> Result<GlossaryResp> {
+    pub async fn retrieve_glossary_details(&self, id: impl ToString) -> Result<GlossaryResp> {
         Ok(
-            self.get(self.get_endpoint(&format!("glossaries/{id}")))
+            self.get(self.get_endpoint(&format!("glossaries/{}", id.to_string())))
                 .send()
                 .await
                 .map_err(|e| Error::RequestFail(e.to_string()))?
@@ -170,8 +176,8 @@ impl DeepLApi {
     }
 
     /// Deletes the specified glossary.
-    pub async fn delete_glossary(&self, id: String) -> Result<()> {
-        self.del(self.get_endpoint(&format!("glossaries/{id}")))
+    pub async fn delete_glossary(&self, id: impl ToString) -> Result<()> {
+        self.del(self.get_endpoint(&format!("glossaries/{}", id.to_string())))
             .send()
             .await
             .map_err(|e| Error::RequestFail(e.to_string()))
@@ -180,8 +186,8 @@ impl DeepLApi {
 
     /// List the entries of a single glossary in the format specified by the Accept header.
     /// Currently, support TSV(tab separated value) only.
-    pub async fn retrieve_glossary_entries(&self, id: String) -> Result<(String, String)> {
-        Ok(self.get(self.get_endpoint(&format!("glossaries/{id}/entries")))
+    pub async fn retrieve_glossary_entries(&self, id: impl ToString) -> Result<(String, String)> {
+        Ok(self.get(self.get_endpoint(&format!("glossaries/{}/entries", id.to_string())))
             .header("Accept", "text/tab-separated-values")
             .send()
             .await
@@ -194,21 +200,56 @@ impl DeepLApi {
             })
             .expect("Fail to retrieve glossary entries. Please open issue on https://github.com/Avimitin/deepl."))
     }
+
+    /// Retrieve the list of language pairs supported by the glossary feature.
+    pub async fn list_glossary_language_pairs(&self) -> Result<Vec<GlossaryLanguagePair>> {
+        Ok(self.get(self.get_endpoint("glossary-language-pairs"))
+            .send()
+            .await
+            .map_err(|e| Error::RequestFail(e.to_string()))?
+            .json::<HashMap<String, Vec<GlossaryLanguagePair>>>()
+            .await
+            .expect("Fail to parse DeepL response for glossary language pair, Please open issue on https://github.com/Avimitin/deepl.")
+            .remove("supported_languages")
+            .expect("Fail to get supported languages from glossary language pairs"))
+    }
 }
 
 #[tokio::test]
-async fn test_create_gloassary() {
+async fn test_glossary_api() {
     use crate::{glossary::EntriesFormat, DeepLApi, Lang};
 
     let key = std::env::var("DEEPL_API_KEY").unwrap();
     let deepl = DeepLApi::with(&key).new();
 
-    let _: GlossaryResp = deepl
-        .create_glossary("My Gloassary")
+    assert_ne!(deepl.list_glossary_language_pairs().await.unwrap().len(), 0);
+
+    let resp = deepl
+        .create_glossary("My Glossary")
         .source("Hello", Lang::EN)
         .target("Guten Tag", Lang::DE)
         .format(EntriesFormat::CSV) // This field is optional, we will use TSV as default.
         .send()
         .await
         .unwrap();
+    assert_eq!(resp.name, "My Glossary");
+
+    let all = deepl.list_all_glossaries().await.unwrap();
+    assert_ne!(all.len(), 0);
+
+    let detail = deepl
+        .retrieve_glossary_details(&resp.glossary_id)
+        .await
+        .unwrap();
+
+    assert_eq!(detail, resp);
+
+    let (source, target) = deepl
+        .retrieve_glossary_entries(&resp.glossary_id)
+        .await
+        .unwrap();
+    assert_eq!(source, "Hello");
+    assert_eq!(target, "Guten Tag");
+
+    deepl.delete_glossary(resp.glossary_id).await.unwrap();
 }
