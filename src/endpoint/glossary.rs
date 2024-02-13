@@ -89,7 +89,7 @@ impl<'a> From<CreateGlossary<'a>> for CreateGlossaryRequestParam {
             target_lang: value.target.1.to_string(),
             entries: match value.format {
                 EntriesFormat::TSV => format!("{}\t{}", value.source.0, value.target.0),
-                EntriesFormat::CSV => format!("{}:{}", value.source.0, value.target.0),
+                EntriesFormat::CSV => format!("{},{}", value.source.0, value.target.0),
             },
             entries_format: value.format.to_string(),
         }
@@ -169,6 +169,7 @@ impl DeepLApi {
         )
     }
 
+    /// Deletes the specified glossary.
     pub async fn delete_glossary(&self, id: String) -> Result<()> {
         self.del(self.get_endpoint(&format!("glossaries/{id}")))
             .send()
