@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.1 - 2024-02-21
+
+- Add `context` field into translate API
+- make all field in glossary API as public
+
 ## v0.5.0 - 2024-02-21
 
 - Add type constraint for glossary APIs
