@@ -10,15 +10,14 @@ Typed HTTP wrapper for interacting with DeepL API. File upload/download is also 
 
 ```toml
 [dependencies]
-deepl = "0.4"
+deepl = "0.5"
 ```
 
 ```rust
 use deepl::{DeepLApi, Lang};
 
 let api = DeepLApi::with("YOUR AUTH KEY").new();
-let translated = api.translate_text("Hello World", Lang::ZH)
-                .await.unwrap();
+let translated = api.translate_text("Hello World", Lang::ZH).await.unwrap();
 
 let sentences = translated.translations;
 assert_eq!(sentences[0].text, "你好，世界");

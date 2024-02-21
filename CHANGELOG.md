@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.0 - 2024-02-21
+
+- Add type constraint for glossary APIs
+
 ## v0.4.6 - 2024-02-14
 
 - Implement all the glossaries related API
