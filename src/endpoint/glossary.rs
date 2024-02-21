@@ -55,21 +55,21 @@ impl<'a> IntoFuture for CreateGlossary<'a> {
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GlossaryResp {
     /// A unique ID assigned to a glossary.
-    glossary_id: String,
+    pub glossary_id: String,
     /// Name associated with the glossary.
-    name: String,
+    pub name: String,
     /// Indicates if the newly created glossary can already be used in translate requests.
     /// If the created glossary is not yet ready, you have to wait and check the ready status
     /// of the glossary before using it in a translate request.
-    ready: bool,
+    pub ready: bool,
     /// The language in which the source texts in the glossary are specified.
-    source_lang: Lang,
+    pub source_lang: Lang,
     /// The language in which the target texts in the glossary are specified.
-    target_lang: Lang,
+    pub target_lang: Lang,
     /// The creation time of the glossary in the ISO 8601-1:2019 format (e.g.: 2021-08-03T14:16:18.329Z).
-    creation_time: String,
+    pub creation_time: String,
     /// The number of entries in the glossary.
-    entry_count: u64,
+    pub entry_count: u64,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -113,8 +113,8 @@ impl ToString for EntriesFormat {
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct GlossaryLanguagePair {
-    source_lang: Lang,
-    target_lang: Lang,
+    pub source_lang: Lang,
+    pub target_lang: Lang,
 }
 
 impl DeepLApi {
