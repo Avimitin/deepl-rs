@@ -1,6 +1,6 @@
 use crate::{
     endpoint::{Error, Result},
-    DeepLApi,
+    DeepLApi, Lang,
 };
 use core::future::IntoFuture;
 use std::collections::HashMap;
@@ -15,11 +15,11 @@ pub struct CreateGlossary<'a> {
 
     name: String,
 
-    #[builder(setter(transform = |a: impl ToString, b: impl ToString| (a.to_string(), b.to_string().to_lowercase())))]
-    source: (String, String),
+    #[builder(setter(transform = |a: impl ToString, b: Lang| (a.to_string(), b)))]
+    source: (String, Lang),
 
-    #[builder(setter(transform = |a: impl ToString, b: impl ToString| (a.to_string(), b.to_string().to_lowercase())))]
-    target: (String, String),
+    #[builder(setter(transform = |a: impl ToString, b: Lang| (a.to_string(), b)))]
+    target: (String, Lang),
 
     #[builder(default = EntriesFormat::TSV)]
     format: EntriesFormat,
@@ -63,9 +63,9 @@ pub struct GlossaryResp {
     /// of the glossary before using it in a translate request.
     ready: bool,
     /// The language in which the source texts in the glossary are specified.
-    source_lang: String,
+    source_lang: Lang,
     /// The language in which the target texts in the glossary are specified.
-    target_lang: String,
+    target_lang: Lang,
     /// The creation time of the glossary in the ISO 8601-1:2019 format (e.g.: 2021-08-03T14:16:18.329Z).
     creation_time: String,
     /// The number of entries in the glossary.
@@ -85,8 +85,8 @@ impl<'a> From<CreateGlossary<'a>> for CreateGlossaryRequestParam {
     fn from(value: CreateGlossary<'a>) -> Self {
         CreateGlossaryRequestParam {
             name: value.name,
-            source_lang: value.source.1.to_string(),
-            target_lang: value.target.1.to_string(),
+            source_lang: value.source.1.to_string().to_lowercase(),
+            target_lang: value.target.1.to_string().to_lowercase(),
             entries: match value.format {
                 EntriesFormat::TSV => format!("{}\t{}", value.source.0, value.target.0),
                 EntriesFormat::CSV => format!("{},{}", value.source.0, value.target.0),
@@ -113,8 +113,8 @@ impl ToString for EntriesFormat {
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct GlossaryLanguagePair {
-    source_lang: String,
-    target_lang: String,
+    source_lang: Lang,
+    target_lang: Lang,
 }
 
 impl DeepLApi {

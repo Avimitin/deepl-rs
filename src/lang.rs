@@ -139,7 +139,7 @@ impl<'de> Deserialize<'de> for Lang {
     where
         D: Deserializer<'de>,
     {
-        let lang = String::deserialize(deserializer)?;
+        let lang = String::deserialize(deserializer)?.to_uppercase();
 
         let lang = Lang::try_from(&lang).map_err(|_| {
             serde::de::Error::custom(
