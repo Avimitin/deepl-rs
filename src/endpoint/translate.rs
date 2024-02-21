@@ -108,6 +108,7 @@ impl_requester! {
             target_lang: Lang,
         };
         @optional{
+            context: String,
             source_lang: Lang,
             split_sentences: SplitSentences,
             preserve_formatting: PreserveFormatting,
