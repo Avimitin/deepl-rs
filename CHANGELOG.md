@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.6.0 - 2024-02-21
+
+- Fix incorrect implmentation of glossary API
+
 ## v0.5.1 - 2024-02-21
 
 - Add `context` field into translate API
