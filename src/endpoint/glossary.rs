@@ -3,6 +3,7 @@ use crate::{
     DeepLApi, Lang,
 };
 use core::future::IntoFuture;
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use typed_builder::TypedBuilder;
 
@@ -15,18 +16,62 @@ pub struct CreateGlossary<'a> {
 
     name: String,
 
-    #[builder(setter(transform = |a: impl ToString, b: Lang| (a.to_string(), b)))]
-    source: (String, Lang),
+    source_lang: Lang,
+    target_lang: Lang,
 
-    #[builder(setter(transform = |a: impl ToString, b: Lang| (a.to_string(), b)))]
-    target: (String, Lang),
+    #[builder(setter(prefix = "__"))]
+    entries: Vec<(String, String)>,
 
     #[builder(default = EntriesFormat::TSV)]
     format: EntriesFormat,
 }
 
+#[allow(non_camel_case_types)]
+impl<'a, _c, _n, _s, _t, _f> CreateGlossaryBuilder<'a, (_c, _n, _s, _t, (), _f)> {
+    /// The entries of the glossary.
+    ///
+    /// Entries parameter should be able to yield type (String, String).
+    ///
+    /// # Example
+    /// ```rust
+    /// let my_entries = vec![("Hello", "Guten Tag"), ("Bye", "Auf Wiedersehen")];
+    /// // Pass in a HashMap is also okay.
+    /// // let my_entries = HashMap::from([("Hello", "Guten Tag"), ("Bye", "Auf Wiedersehen")]);
+    /// let resp = deepl
+    ///     .create_glossary("My Glossary")
+    ///     .source_lang(Lang::EN)
+    ///     .target_lang(Lang::DE)
+    ///     .entries(&my_entries)
+    ///     .format(EntriesFormat::CSV) // This field is optional, we will use TSV as default.
+    ///     .send()
+    ///     .await
+    ///     .unwrap();
+    /// assert_eq!(resp.name, "My Glossary");
+    /// ```
+    pub fn entries<S, T, B, I>(
+        self,
+        iter: I,
+    ) -> CreateGlossaryBuilder<'a, (_c, _n, _s, _t, (Vec<(String, String)>,), _f)>
+    where
+        S: ToString,
+        T: ToString,
+        B: Borrow<(S, T)>,
+        I: IntoIterator<Item = B>,
+    {
+        let entries = iter
+            .into_iter()
+            .map(|t| (t.borrow().0.to_string(), t.borrow().1.to_string()))
+            .collect();
+        let (client, name, source_lang, target_lang, (), format) = self.fields;
+        CreateGlossaryBuilder {
+            fields: (client, name, source_lang, target_lang, (entries,), format),
+            phantom: self.phantom,
+        }
+    }
+}
+
 type CreateGlossaryBuilderStart<'a> =
-    CreateGlossaryBuilder<'a, ((&'a DeepLApi,), (String,), (), (), ())>;
+    CreateGlossaryBuilder<'a, ((&'a DeepLApi,), (String,), (), (), (), ())>;
 
 impl<'a> IntoFuture for CreateGlossary<'a> {
     type Output = Result<GlossaryResp>;
@@ -85,11 +130,21 @@ impl<'a> From<CreateGlossary<'a>> for CreateGlossaryRequestParam {
     fn from(value: CreateGlossary<'a>) -> Self {
         CreateGlossaryRequestParam {
             name: value.name,
-            source_lang: value.source.1.to_string().to_lowercase(),
-            target_lang: value.target.1.to_string().to_lowercase(),
+            source_lang: value.source_lang.to_string().to_lowercase(),
+            target_lang: value.target_lang.to_string().to_lowercase(),
             entries: match value.format {
-                EntriesFormat::TSV => format!("{}\t{}", value.source.0, value.target.0),
-                EntriesFormat::CSV => format!("{},{}", value.source.0, value.target.0),
+                EntriesFormat::TSV => value
+                    .entries
+                    .iter()
+                    .map(|(x, y)| format!("{x}\t{y}"))
+                    .collect::<Vec<String>>()
+                    .join("\n"),
+                EntriesFormat::CSV => value
+                    .entries
+                    .iter()
+                    .map(|(x, y)| format!("{x},{y}"))
+                    .collect::<Vec<String>>()
+                    .join("\n"),
             },
             entries_format: value.format.to_string(),
         }
@@ -186,7 +241,10 @@ impl DeepLApi {
 
     /// List the entries of a single glossary in the format specified by the Accept header.
     /// Currently, support TSV(tab separated value) only.
-    pub async fn retrieve_glossary_entries(&self, id: impl ToString) -> Result<(String, String)> {
+    pub async fn retrieve_glossary_entries(
+        &self,
+        id: impl ToString,
+    ) -> Result<Vec<(String, String)>> {
         Ok(self.get(self.get_endpoint(&format!("glossaries/{}/entries", id.to_string())))
             .header("Accept", "text/tab-separated-values")
             .send()
@@ -195,8 +253,10 @@ impl DeepLApi {
             .text()
             .await
             .map(|resp| {
-                let mut pair = resp.split("\t");
-                (pair.next().unwrap().to_string(), pair.next().unwrap().to_string())
+                resp.split("\n").map(|line| {
+                    let mut pair = line.split("\t");
+                    (pair.next().unwrap().to_string(), pair.next().unwrap().to_string())
+                }).collect()
             })
             .expect("Fail to retrieve glossary entries. Please open issue on https://github.com/Avimitin/deepl."))
     }
@@ -224,10 +284,13 @@ async fn test_glossary_api() {
 
     assert_ne!(deepl.list_glossary_language_pairs().await.unwrap().len(), 0);
 
+    let my_entries = vec![("Hello", "Guten Tag"), ("Bye", "Auf Wiedersehen")];
+    // let my_entries = HashMap::from([("Hello", "Guten Tag"), ("Bye", "Auf Wiedersehen")]);
     let resp = deepl
         .create_glossary("My Glossary")
-        .source("Hello", Lang::EN)
-        .target("Guten Tag", Lang::DE)
+        .source_lang(Lang::EN)
+        .target_lang(Lang::DE)
+        .entries(&my_entries)
         .format(EntriesFormat::CSV) // This field is optional, we will use TSV as default.
         .send()
         .await
@@ -244,12 +307,14 @@ async fn test_glossary_api() {
 
     assert_eq!(detail, resp);
 
-    let (source, target) = deepl
+    let entries = deepl
         .retrieve_glossary_entries(&resp.glossary_id)
         .await
         .unwrap();
-    assert_eq!(source, "Hello");
-    assert_eq!(target, "Guten Tag");
+    assert_eq!(entries.len(), 2);
+    let entries: HashMap<String, String> = HashMap::from_iter(entries);
+    assert_eq!(entries["Hello"], "Guten Tag");
+    assert_eq!(entries["Bye"], "Auf Wiedersehen");
 
     deepl.delete_glossary(resp.glossary_id).await.unwrap();
 }
