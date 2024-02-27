@@ -29,6 +29,8 @@
             rs-toolchain
             # rust-analyzer comes from nixpkgs toolchain, I want the unwrapped version
             pkgs.rust-analyzer-unwrapped
+            pkgs.cargo-expand
+            pkgs.openssl
           ];
 
           # To make rust-analyzer work correctly (The path prefix issue)
