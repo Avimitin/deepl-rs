@@ -32,6 +32,8 @@ pub enum Error {
     WriteFileError(String),
 }
 
+const REPO_URL: &'static str = "https://github.com/Avimitin/deepl-rs";
+
 /// Alias Result<T, E> to Result<T, [`Error`]>
 type Result<T, E = Error> = std::result::Result<T, E>;
 

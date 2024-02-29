@@ -1,5 +1,5 @@
 use crate::{
-    endpoint::{Error, Result},
+    endpoint::{Error, Result, REPO_URL},
     DeepLApi, Lang,
 };
 use core::future::IntoFuture;
@@ -82,19 +82,62 @@ impl<'a> IntoFuture for CreateGlossary<'a> {
         let fields = CreateGlossaryRequestParam::from(self);
         let fut = async move {
             let resp = client
-                        .post(client.get_endpoint("glossaries"))
-                        .json(&fields)
-                        .send()
-                        .await
-                        .map_err(|err| Error::RequestFail(err.to_string()))?
-                        .json::<GlossaryResp>()
-                        .await
-                        .expect("Unmatched response to CreateGlossaryResp, please open issue on https://github.com/Avimitin/deepl.");
-            Ok(resp)
+                .post(client.get_endpoint("glossaries"))
+                .json(&fields)
+                .send()
+                .await
+                .map_err(|err| Error::RequestFail(err.to_string()))?
+                .json::<GlossaryPossibleResps>()
+                .await
+                .unwrap_or_else(|_| {
+                    panic!(
+                    "Unmatched response to CreateGlossaryResp, please open issue on {REPO_URL}."
+                )
+                });
+
+            match resp {
+                GlossaryPossibleResps::Fail { message } => Err(Error::RequestFail(format!(
+                    "Fail to create request to glossary API: {message}"
+                ))),
+                GlossaryPossibleResps::Success {
+                    glossary_id,
+                    name,
+                    ready,
+                    source_lang,
+                    target_lang,
+                    creation_time,
+                    entry_count,
+                } => Ok(GlossaryResp {
+                    glossary_id,
+                    name,
+                    ready,
+                    source_lang,
+                    target_lang,
+                    creation_time,
+                    entry_count,
+                }),
+            }
         };
 
         Box::pin(fut)
     }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum GlossaryPossibleResps {
+    Success {
+        glossary_id: String,
+        name: String,
+        ready: bool,
+        source_lang: Lang,
+        target_lang: Lang,
+        creation_time: String,
+        entry_count: u64,
+    },
+    Fail {
+        message: String,
+    },
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -210,24 +253,45 @@ impl DeepLApi {
                 .map_err(|e| Error::RequestFail(e.to_string()))?
                 .json::<HashMap<String, Vec<GlossaryResp>>>()
                 .await
-                .expect("Unmatched type HashMap<String, Vec<CreateGlossaryResp>> to DeepL response. Please open issue on https://github.com/Avimitin/deepl.")
+                .map_err(|err| Error::RequestFail(format!("Unexpected error when requesting list_all_glossaries, please open issue on {REPO_URL}: {err}")))?
                 .remove("glossaries")
-                .expect("Unmatched DeepL response, expect glossaries key to unwrap. Please open issue on https://github.com/Avimitin/deepl."),
+                .ok_or(Error::RequestFail(format!("Unable to find key glossaries in response, please open issue on {REPO_URL}")))?
         )
     }
 
     /// Retrieve meta information for a single glossary, omitting the glossary entries.
     /// Require a unique ID assigned to the glossary.
     pub async fn retrieve_glossary_details(&self, id: impl ToString) -> Result<GlossaryResp> {
-        Ok(
-            self.get(self.get_endpoint(&format!("glossaries/{}", id.to_string())))
-                .send()
-                .await
-                .map_err(|e| Error::RequestFail(e.to_string()))?
-                .json::<GlossaryResp>()
-                .await
-                .expect("Unmatched DeepL response to type GlossaryResp. Please open issue on https://github.com/Avimitin/deepl."),
-        )
+        match self
+            .get(self.get_endpoint(&format!("glossaries/{}", id.to_string())))
+            .send()
+            .await
+            .map_err(|e| Error::RequestFail(e.to_string()))?
+            .json::<GlossaryPossibleResps>()
+            .await
+            .expect("")
+        {
+            GlossaryPossibleResps::Fail { message } => Err(Error::RequestFail(format!(
+                "fail to send request to glossary API: {message}"
+            ))),
+            GlossaryPossibleResps::Success {
+                glossary_id,
+                name,
+                ready,
+                source_lang,
+                target_lang,
+                creation_time,
+                entry_count,
+            } => Ok(GlossaryResp {
+                glossary_id,
+                name,
+                ready,
+                source_lang,
+                target_lang,
+                creation_time,
+                entry_count,
+            }),
+        }
     }
 
     /// Deletes the specified glossary.
@@ -245,7 +309,8 @@ impl DeepLApi {
         &self,
         id: impl ToString,
     ) -> Result<Vec<(String, String)>> {
-        Ok(self.get(self.get_endpoint(&format!("glossaries/{}/entries", id.to_string())))
+        Ok(self
+            .get(self.get_endpoint(&format!("glossaries/{}/entries", id.to_string())))
             .header("Accept", "text/tab-separated-values")
             .send()
             .await
@@ -253,25 +318,39 @@ impl DeepLApi {
             .text()
             .await
             .map(|resp| {
-                resp.split("\n").map(|line| {
-                    let mut pair = line.split("\t");
-                    (pair.next().unwrap().to_string(), pair.next().unwrap().to_string())
-                }).collect()
+                resp.split("\n")
+                    .map(|line| {
+                        let mut pair = line.split("\t");
+                        (
+                            pair.next().unwrap().to_string(),
+                            pair.next().unwrap().to_string(),
+                        )
+                    })
+                    .collect()
             })
-            .expect("Fail to retrieve glossary entries. Please open issue on https://github.com/Avimitin/deepl."))
+            .map_err(|err| {
+                Error::RequestFail(format!("fail to retrieve glossary entries: {err}"))
+            }))?
     }
 
     /// Retrieve the list of language pairs supported by the glossary feature.
     pub async fn list_glossary_language_pairs(&self) -> Result<Vec<GlossaryLanguagePair>> {
-        Ok(self.get(self.get_endpoint("glossary-language-pairs"))
+        let pair = self
+            .get(self.get_endpoint("glossary-language-pairs"))
             .send()
             .await
             .map_err(|e| Error::RequestFail(e.to_string()))?
             .json::<HashMap<String, Vec<GlossaryLanguagePair>>>()
             .await
-            .expect("Fail to parse DeepL response for glossary language pair, Please open issue on https://github.com/Avimitin/deepl.")
+            .map_err(|err| {
+                Error::RequestFail(format!("fail to list glossary language pairs: {err}"))
+            })?
             .remove("supported_languages")
-            .expect("Fail to get supported languages from glossary language pairs"))
+            .ok_or(Error::RequestFail(format!(
+                "Fail to get supported languages from glossary language pairs"
+            )))?;
+
+        Ok(pair)
     }
 }
 
