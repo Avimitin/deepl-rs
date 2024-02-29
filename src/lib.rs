@@ -142,7 +142,7 @@ impl DeepLApiBuilder {
     /// Create a new instance of the DeepLApi
     pub fn new(&self) -> DeepLApi {
         let client = self.client.clone().unwrap_or_else(reqwest::Client::new);
-        let endpoint = if self.is_pro {
+        let endpoint = if self.is_pro || !self.key.ends_with(":fx") {
             "https://api.deepl.com/v2/"
         } else {
             "https://api-free.deepl.com/v2/"
