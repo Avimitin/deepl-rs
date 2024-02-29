@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.6.1 - 2024-03-01
+
+- Wrap panic into Result
+
 ## v0.6.0 - 2024-02-21
 
 - Fix incorrect implmentation of glossary API
