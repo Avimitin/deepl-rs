@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.2 - 2024-03-19
+
+- Add support for AR (Arabic)
+- Support automatically switch API backend
+
 ## v0.6.1 - 2024-03-01
 
 - Wrap panic into Result
