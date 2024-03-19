@@ -99,6 +99,7 @@ macro_rules! generate_langs {
 }
 
 generate_langs! {
+    ("AR",    "Arabic");
     ("BG",    "Bulgarian");
     ("CS",    "Czech");
     ("DA",    "Danish");
