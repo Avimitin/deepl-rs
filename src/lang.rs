@@ -1,3 +1,5 @@
+use std::{fmt::Display, str::FromStr};
+
 use paste::paste;
 use serde::{Deserialize, Deserializer, Serialize};
 use thiserror::Error;
@@ -88,12 +90,6 @@ macro_rules! generate_langs {
                     }
                 }
             }
-
-            impl ToString for Lang {
-                fn to_string(&self) -> String {
-                    self.as_ref().to_string()
-                }
-            }
         }
     };
 }
@@ -149,5 +145,19 @@ impl<'de> Deserialize<'de> for Lang {
         })?;
 
         Ok(lang)
+    }
+}
+
+impl FromStr for Lang {
+    type Err = LangConvertError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Lang::try_from(s)
+    }
+}
+
+impl Display for Lang {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
     }
 }
