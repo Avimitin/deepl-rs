@@ -1,7 +1,20 @@
 # Changelog
 
-## Unreleased
+## v0.6.4 - 2024-08-21
 - Add derive of `hash` for `Lang`
+- Add `ZH-HANS` and `ZH-HANT`
+- Bump dependencies:
+    * thiserror: `1.0.35` -> `1.0.63`
+    * reqwest: `0.12.4` -> `0.12.7`
+    * serde: `1.0.144` -> `1.0.208`
+    * tokio: `1.21.1` -> `1.39.3`
+    * tokio-stream: `0.1.11` -> `0.1.15`
+    * paste: `1.0.11` -> `1.0.15`
+    * typed-builder: `0.18` -> `0.19`
+
+## v0.6.3 - 2024-04-28
+
+- Add FromStr and Display trait implementation for Lang
 
 ## v0.6.2 - 2024-03-19
 
