@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Add derive of `hash` for `Lang`
+
 ## v0.6.2 - 2024-03-19
 
 - Add support for AR (Arabic)
