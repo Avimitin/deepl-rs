@@ -129,6 +129,8 @@ generate_langs! {
     ("TR",    "Turkish");
     ("UK",    "Ukrainian");
     ("ZH",    "Chinese");
+    ("ZH-HANS",    "Chinese (simplified)");
+    ("ZH-HANT",    "Chinese (tranditional)");
 }
 
 impl<'de> Deserialize<'de> for Lang {
