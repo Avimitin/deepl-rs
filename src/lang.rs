@@ -22,10 +22,10 @@ macro_rules! generate_langs {
             /// Languages
             #[allow(non_camel_case_types)]
             #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize)]
-            #[serde(rename_all = "SCREAMING-KEBAB-CASE")]
             pub enum Lang {
                 $(
                     #[doc = $desc]
+                    #[serde(rename = $code)]
                     [<$code>],
                 )+
             }
