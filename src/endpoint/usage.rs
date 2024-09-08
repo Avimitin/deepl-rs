@@ -48,5 +48,5 @@ async fn test_usage() {
     let api = DeepLApi::with(&key).new();
     let response = api.get_usage().await.unwrap();
 
-    assert_ne!(response.character_count, 0);
+    assert_ne!(response.character_limit, 0);
 }
