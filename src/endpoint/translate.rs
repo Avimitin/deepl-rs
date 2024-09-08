@@ -1,11 +1,12 @@
-use std::{collections::HashMap, future::IntoFuture};
+use std::future::IntoFuture;
 
 use crate::{
     endpoint::{Formality, Pollable, Result},
     impl_requester, Lang,
 };
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 /// Response from basic translation API
 #[derive(Deserialize)]
@@ -40,18 +41,12 @@ pub struct Sentence {
 /// - Punctuation at the beginning and end of the sentence
 /// - Upper/lower case at the beginning of the sentence
 ///
+#[derive(Debug, Serialize)]
 pub enum PreserveFormatting {
+    #[serde(rename = "1")]
     Preserve,
+    #[serde(rename = "0")]
     DontPreserve,
-}
-
-impl AsRef<str> for PreserveFormatting {
-    fn as_ref(&self) -> &str {
-        match self {
-            PreserveFormatting::Preserve => "1",
-            PreserveFormatting::DontPreserve => "0",
-        }
-    }
 }
 
 ///
@@ -61,28 +56,24 @@ impl AsRef<str> for PreserveFormatting {
 /// in order to prevent the engine from splitting the sentence unintentionally.
 /// Please note that newlines will split sentences. You should therefore clean files to avoid breaking sentences or set this to `PunctuationOnly`.
 ///
+#[derive(Debug, Serialize)]
 pub enum SplitSentences {
     /// Perform no splitting at all, whole input is treated as one sentence
+    #[serde(rename = "0")]
     None,
     /// Split on punctuation and on newlines (default)
+    #[serde(rename = "1")]
     PunctuationAndNewlines,
     /// Split on punctuation only, ignoring newlines
+    #[serde(rename = "nonewlines")]
     PunctuationOnly,
-}
-
-impl AsRef<str> for SplitSentences {
-    fn as_ref(&self) -> &str {
-        match self {
-            SplitSentences::None => "0",
-            SplitSentences::PunctuationAndNewlines => "1",
-            SplitSentences::PunctuationOnly => "nonewlines",
-        }
-    }
 }
 
 ///
 /// Sets which kind of tags should be handled. Options currently available
 ///
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum TagHandling {
     /// Enable XML tag handling
     /// see: <https://www.deepl.com/docs-api/xml>
@@ -92,19 +83,10 @@ pub enum TagHandling {
     Html,
 }
 
-impl AsRef<str> for TagHandling {
-    fn as_ref(&self) -> &str {
-        match self {
-            TagHandling::Xml => "xml",
-            TagHandling::Html => "html",
-        }
-    }
-}
-
 impl_requester! {
     TranslateRequester {
         @required{
-            text: String,
+            text: Vec<String>,
             target_lang: Lang,
         };
         @optional{
@@ -126,7 +108,7 @@ impl<'a> IntoFuture for TranslateRequester<'a> {
     type Output = Result<TranslateTextResp>;
     type IntoFuture = Pollable<'a, Self::Output>;
 
-    fn into_future(mut self) -> Self::IntoFuture {
+    fn into_future(self) -> Self::IntoFuture {
         self.send()
     }
 }
@@ -141,65 +123,14 @@ impl<'a> IntoFuture for &mut TranslateRequester<'a> {
 }
 
 impl<'a> TranslateRequester<'a> {
-    fn to_form(&self) -> HashMap<&'static str, String> {
-        let mut param = HashMap::new();
-        param.insert("text", self.text.to_string());
-
-        if let Some(la) = &self.source_lang {
-            param.insert("source_lang", la.as_ref().to_string());
-        }
-
-        param.insert("target_lang", self.target_lang.as_ref().to_string());
-
-        if let Some(ss) = &self.split_sentences {
-            param.insert("split_sentences", ss.as_ref().to_string());
-        }
-
-        if let Some(pf) = &self.preserve_formatting {
-            param.insert("preserve_formatting", pf.as_ref().to_string());
-        }
-
-        if let Some(fm) = &self.formality {
-            param.insert("formality", fm.as_ref().to_string());
-        }
-
-        if let Some(id) = &self.glossary_id {
-            param.insert("glossary_id", id.to_string());
-        }
-
-        if let Some(th) = &self.tag_handling {
-            param.insert("tag_handling", th.as_ref().to_string());
-        }
-
-        if let Some(tags) = &self.non_splitting_tags {
-            if !tags.is_empty() {
-                param.insert("non_splitting_tags", tags.join(","));
-            }
-        }
-
-        if let Some(tags) = &self.splitting_tags {
-            if !tags.is_empty() {
-                param.insert("splitting_tags", tags.join(","));
-            }
-        }
-
-        if let Some(tags) = &self.ignore_tags {
-            if !tags.is_empty() {
-                param.insert("ignore_tags", tags.join(","));
-            }
-        }
-
-        param
-    }
-
-    fn send(&mut self) -> Pollable<'a, Result<TranslateTextResp>> {
+    fn send(&self) -> Pollable<'a, Result<TranslateTextResp>> {
         let client = self.client.clone();
-        let form = self.to_form();
+        let obj = json!(self);
 
         let fut = async move {
             let response = client
                 .post(client.inner.endpoint.join("translate").unwrap())
-                .form(&form)
+                .json(&obj)
                 .send()
                 .await
                 .map_err(|err| Error::RequestFail(err.to_string()))?;
@@ -262,7 +193,7 @@ impl DeepLApi {
     /// assert_eq!(translated_results[0].text, should);
     /// ```
     pub fn translate_text(&self, text: impl ToString, target_lang: Lang) -> TranslateRequester {
-        TranslateRequester::new(self, text.to_string(), target_lang)
+        TranslateRequester::new(self, vec![text.to_string()], target_lang)
     }
 }
 

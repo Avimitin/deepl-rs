@@ -59,7 +59,9 @@ macro_rules! impl_requester {
 
         paste! {
             #[doc = "Builder type for `" $name "`"]
+            #[derive(Debug, serde::Serialize)]
             pub struct $name<'a> {
+                #[serde(skip)]
                 client: &'a DeepLApi,
 
                 $($must_field: $must_type,)+
@@ -88,7 +90,7 @@ macro_rules! impl_requester {
 }
 
 /// Formality preference for translation
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Formality {
     Default,
