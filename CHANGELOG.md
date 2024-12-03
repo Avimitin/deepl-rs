@@ -1,8 +1,19 @@
 # Changelog
 
-## Unreleased
+## v0.6.5 - 2024-12-03
 
 - Refactor translate API with JSON parser
+- Bump all dependencies
+```text
+name         old req latest
+====         ======= ======
+thiserror    1.0.63  2.0.3
+reqwest      0.12.7  0.12.9
+serde        1.0.208 1.0.215
+serde_json   1.0.125 1.0.133
+tokio        1.39.3  1.41.1
+tokio-stream 0.1.15  0.1.16
+```
 
 ## v0.6.4 - 2024-08-21
 - Add derive of `hash` for `Lang`
