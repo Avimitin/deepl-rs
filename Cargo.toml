@@ -13,14 +13,14 @@ repository = "https://github.com/Avimitin/deepl-rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0.63"
-reqwest = {version = "0.12.7", features = ["multipart", "json", "stream"]}
-serde = { version = "1.0.208", features = ["derive"] }
-serde_json = "1.0.125"
-tokio = { version = "1.39.3", features = ["rt", "macros", "fs", "rt-multi-thread", "io-util"] }
-tokio-stream = "0.1.15"
+thiserror = "2.0.3"
+reqwest = {version = "0.12.9", features = ["multipart", "json", "stream"]}
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
+tokio = { version = "1.41.1", features = ["rt", "macros", "fs", "rt-multi-thread", "io-util"] }
+tokio-stream = "0.1.16"
 paste = "1.0.15"
-typed-builder = "0.19"
+typed-builder = "0.20"
 
 [dev-dependencies]
 docx-rs = "0.4.17"
