@@ -83,6 +83,20 @@ pub enum TagHandling {
     Html,
 }
 
+///
+/// Sets the language model to use: allows to choose an improved "next-gen" model
+///
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelType {
+    /// Use classic lower-latency default model
+    LatencyOptimized,
+    /// Use improved higher-latency model
+    QualityOptimized,
+    /// Use improved higher-latency model, but fallback to default model if not available for the selected language
+    PreferQualityOptimized
+}
+
 impl_requester! {
     TranslateRequester {
         @required{
@@ -97,6 +111,7 @@ impl_requester! {
             formality: Formality,
             glossary_id: String,
             tag_handling: TagHandling,
+            model_type: ModelType,
             non_splitting_tags: Vec<String>,
             splitting_tags: Vec<String>,
             ignore_tags: Vec<String>,
@@ -233,6 +248,25 @@ async fn test_advanced_translate() {
         "Hallo Welt <keep additionalarg=\"test0\">This will stay exactly the way it was</keep>"
     );
     assert_eq!(translated_results[0].detected_source_language, Lang::EN);
+}
+
+#[tokio::test]
+async fn test_models() {
+    // whatever model is used, the translation should happen, and it can differ slightly
+    for model_type in [ModelType::LatencyOptimized, ModelType::QualityOptimized, ModelType::QualityOptimized] {
+        let api = DeepLApi::with(&std::env::var("DEEPL_API_KEY").unwrap()).new();
+
+        let response = api
+            .translate_text("No te muevas, pringao", Lang::EN)
+            .source_lang(Lang::ES)
+            .model_type(model_type)
+            .await
+            .unwrap();
+
+        assert!(response
+                    .translations.get(0).expect("should be a translation")
+                    .text.contains("Don't move")); // the last word can differ depending on the model chosen
+    }
 }
 
 #[tokio::test]
