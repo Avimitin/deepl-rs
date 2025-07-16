@@ -83,9 +83,7 @@ pub enum TagHandling {
     Html,
 }
 
-///
 /// Sets the language model to use: allows to choose an improved "next-gen" model
-///
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelType {
@@ -252,10 +250,10 @@ async fn test_advanced_translate() {
 
 #[tokio::test]
 async fn test_models() {
+    let api = DeepLApi::with(&std::env::var("DEEPL_API_KEY").unwrap()).new();
+
     // whatever model is used, the translation should happen, and it can differ slightly
     for model_type in [ModelType::LatencyOptimized, ModelType::QualityOptimized, ModelType::QualityOptimized] {
-        let api = DeepLApi::with(&std::env::var("DEEPL_API_KEY").unwrap()).new();
-
         let response = api
             .translate_text("No te muevas, pringao", Lang::EN)
             .source_lang(Lang::ES)
