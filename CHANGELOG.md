@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.6.6 - 2025-07-17
+
+- Add support for choosing different model
+- Bump dependencies
+
+```text
+name         old req compatible latest  new req
+====         ======= ========== ======  =======
+thiserror    2.0.3   2.0.12     2.0.12  2.0.12
+reqwest      0.12.9  0.12.22    0.12.22 0.12.22
+serde        1.0.215 1.0.219    1.0.219 1.0.219
+serde_json   1.0.133 1.0.140    1.0.140 1.0.140
+tokio        1.41.1  1.46.1     1.46.1  1.46.1
+tokio-stream 0.1.16  0.1.17     0.1.17  0.1.17
+```
+
 ## v0.6.5 - 2024-12-03
 
 - Refactor translate API with JSON parser
