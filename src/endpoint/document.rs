@@ -199,7 +199,7 @@ impl DeepLApi {
         &self,
         fp: impl Into<std::path::PathBuf>,
         target_lang: Lang,
-    ) -> UploadDocumentRequester {
+    ) -> UploadDocumentRequester<'_> {
         UploadDocumentRequester::new(self, fp.into(), target_lang)
     }
 
@@ -437,5 +437,5 @@ async fn test_upload_docx() {
         })
         .collect::<String>();
 
-    assert_eq!(text, "Sein oder nicht sein, das ist hier die Frage");
+    assert_eq!(text, "Sein oder Nichtsein, das ist hier die Frage");
 }

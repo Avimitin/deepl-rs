@@ -35,7 +35,7 @@ pub use endpoint::{
     document::{DocumentStatusResp, DocumentTranslateStatus, UploadDocumentResp},
     glossary,
     languages::{LangInfo, LangType},
-    translate::{TagHandling, TranslateTextResp, ModelType},
+    translate::{ModelType, TagHandling, TranslateTextResp},
     usage::UsageResponse,
     Error, Formality,
 };
