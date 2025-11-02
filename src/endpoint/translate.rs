@@ -92,7 +92,7 @@ pub enum ModelType {
     /// Use improved higher-latency model
     QualityOptimized,
     /// Use improved higher-latency model, but fallback to default model if not available for the selected language
-    PreferQualityOptimized
+    PreferQualityOptimized,
 }
 
 impl_requester! {
@@ -205,7 +205,7 @@ impl DeepLApi {
     /// let should = "Hallo Welt <keep>This will stay exactly the way it was</keep>";
     /// assert_eq!(translated_results[0].text, should);
     /// ```
-    pub fn translate_text(&self, text: impl ToString, target_lang: Lang) -> TranslateRequester {
+    pub fn translate_text(&self, text: impl ToString, target_lang: Lang) -> TranslateRequester<'_> {
         TranslateRequester::new(self, vec![text.to_string()], target_lang)
     }
 }
@@ -253,7 +253,11 @@ async fn test_models() {
     let api = DeepLApi::with(&std::env::var("DEEPL_API_KEY").unwrap()).new();
 
     // whatever model is used, the translation should happen, and it can differ slightly
-    for model_type in [ModelType::LatencyOptimized, ModelType::QualityOptimized, ModelType::QualityOptimized] {
+    for model_type in [
+        ModelType::LatencyOptimized,
+        ModelType::QualityOptimized,
+        ModelType::QualityOptimized,
+    ] {
         let response = api
             .translate_text("No te muevas, pringao", Lang::EN)
             .source_lang(Lang::ES)
@@ -262,8 +266,11 @@ async fn test_models() {
             .unwrap();
 
         assert!(response
-                    .translations.get(0).expect("should be a translation")
-                    .text.contains("Don't move")); // the last word can differ depending on the model chosen
+            .translations
+            .get(0)
+            .expect("should be a translation")
+            .text
+            .contains("Don't move")); // the last word can differ depending on the model chosen
     }
 }
 

@@ -27,6 +27,7 @@ pub struct CreateGlossary<'a> {
 }
 
 #[allow(non_camel_case_types)]
+#[allow(clippy::type_complexity)]
 impl<'a, _c, _n, _s, _t, _f> CreateGlossaryBuilder<'a, (_c, _n, _s, _t, (), _f)> {
     /// The entries of the glossary.
     ///
@@ -216,7 +217,7 @@ pub struct GlossaryLanguagePair {
 }
 
 impl DeepLApi {
-    /// API for endpoint: https://www.deepl.com/de/docs-api/glossaries/create-glossary.
+    /// API for endpoint: <https://www.deepl.com/de/docs-api/glossaries/create-glossary>.
     /// The function for creating a glossary returns a JSON object containing the
     /// ID of the newly created glossary and a boolean flag that indicates if the
     /// created glossary can already be used in translate requests.
@@ -238,7 +239,7 @@ impl DeepLApi {
     ///     .await
     ///     .unwrap();
     /// ```
-    pub fn create_glossary(&self, name: impl ToString) -> CreateGlossaryBuilderStart {
+    pub fn create_glossary(&self, name: impl ToString) -> CreateGlossaryBuilderStart<'_> {
         CreateGlossary::builder()
             .client(self)
             .name(name.to_string())
@@ -246,17 +247,15 @@ impl DeepLApi {
 
     /// List all glossaries and their meta-information, but not the glossary entries.
     pub async fn list_all_glossaries(&self) -> Result<Vec<GlossaryResp>> {
-        Ok(
-            self.get(self.get_endpoint("glossaries"))
-                .send()
-                .await
-                .map_err(|e| Error::RequestFail(e.to_string()))?
-                .json::<HashMap<String, Vec<GlossaryResp>>>()
-                .await
-                .map_err(|err| Error::RequestFail(format!("Unexpected error when requesting list_all_glossaries, please open issue on {REPO_URL}: {err}")))?
-                .remove("glossaries")
-                .ok_or(Error::RequestFail(format!("Unable to find key glossaries in response, please open issue on {REPO_URL}")))?
-        )
+        self.get(self.get_endpoint("glossaries"))
+            .send()
+            .await
+            .map_err(|e| Error::RequestFail(e.to_string()))?
+            .json::<HashMap<String, Vec<GlossaryResp>>>()
+            .await
+            .map_err(|err| Error::RequestFail(format!("Unexpected error when requesting list_all_glossaries, please open issue on {REPO_URL}: {err}")))?
+            .remove("glossaries")
+            .ok_or(Error::RequestFail(format!("Unable to find key glossaries in response, please open issue on {REPO_URL}")))
     }
 
     /// Retrieve meta information for a single glossary, omitting the glossary entries.
@@ -346,9 +345,9 @@ impl DeepLApi {
                 Error::RequestFail(format!("fail to list glossary language pairs: {err}"))
             })?
             .remove("supported_languages")
-            .ok_or(Error::RequestFail(format!(
-                "Fail to get supported languages from glossary language pairs"
-            )))?;
+            .ok_or(Error::RequestFail(
+                "Fail to get supported languages from glossary language pairs".to_string(),
+            ))?;
 
         Ok(pair)
     }
