@@ -1,6 +1,6 @@
 use crate::{
     endpoint::{Error, Result, REPO_URL},
-    DeepLApi, Lang,
+    DeepLApi,
 };
 use core::future::IntoFuture;
 use std::borrow::Borrow;
@@ -9,6 +9,10 @@ use typed_builder::TypedBuilder;
 
 use super::Pollable;
 
+mod languages;
+
+pub use languages::GlossaryLanguage;
+
 #[derive(Debug, TypedBuilder)]
 #[builder(build_method(name = send))]
 pub struct CreateGlossary<'a> {
@@ -16,8 +20,8 @@ pub struct CreateGlossary<'a> {
 
     name: String,
 
-    source_lang: Lang,
-    target_lang: Lang,
+    source_lang: GlossaryLanguage,
+    target_lang: GlossaryLanguage,
 
     #[builder(setter(prefix = "__"))]
     entries: Vec<(String, String)>,
@@ -40,8 +44,8 @@ impl<'a, _c, _n, _s, _t, _f> CreateGlossaryBuilder<'a, (_c, _n, _s, _t, (), _f)>
     /// // let my_entries = HashMap::from([("Hello", "Guten Tag"), ("Bye", "Auf Wiedersehen")]);
     /// let resp = deepl
     ///     .create_glossary("My Glossary")
-    ///     .source_lang(Lang::EN)
-    ///     .target_lang(Lang::DE)
+    ///     .source_lang(GlossaryLanguage::En)
+    ///     .target_lang(GlossaryLanguage::De)
     ///     .entries(&my_entries)
     ///     .format(EntriesFormat::CSV) // This field is optional, we will use TSV as default.
     ///     .send()
@@ -131,8 +135,8 @@ enum GlossaryPossibleResps {
         glossary_id: String,
         name: String,
         ready: bool,
-        source_lang: Lang,
-        target_lang: Lang,
+        source_lang: GlossaryLanguage,
+        target_lang: GlossaryLanguage,
         creation_time: String,
         entry_count: u64,
     },
@@ -152,9 +156,9 @@ pub struct GlossaryResp {
     /// of the glossary before using it in a translate request.
     pub ready: bool,
     /// The language in which the source texts in the glossary are specified.
-    pub source_lang: Lang,
+    pub source_lang: GlossaryLanguage,
     /// The language in which the target texts in the glossary are specified.
-    pub target_lang: Lang,
+    pub target_lang: GlossaryLanguage,
     /// The creation time of the glossary in the ISO 8601-1:2019 format (e.g.: 2021-08-03T14:16:18.329Z).
     pub creation_time: String,
     /// The number of entries in the glossary.
@@ -210,10 +214,20 @@ impl ToString for EntriesFormat {
     }
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+/// Represents a response to `v2/glossary-language-pairs`.
+#[derive(Debug, serde::Deserialize)]
+struct GlossaryLanguagePairsResponse {
+    /// Supported languages.
+    supported_languages: Vec<GlossaryLanguagePair>,
+}
+
+/// A glossary language pair.
+#[derive(Debug, serde::Deserialize)]
 pub struct GlossaryLanguagePair {
-    pub source_lang: Lang,
-    pub target_lang: Lang,
+    /// Source language
+    pub source_lang: GlossaryLanguage,
+    /// Target language
+    pub target_lang: GlossaryLanguage,
 }
 
 impl DeepLApi {
@@ -225,15 +239,15 @@ impl DeepLApi {
     /// # Example
     ///
     /// ```rust
-    /// use crate::{glossary::EntriesFormat, DeepLApi, Lang};
+    /// use crate::{glossary::{EntriesFormat, GlossaryLanguage}, DeepLApi};
     ///
     /// let key = std::env::var("DEEPL_API_KEY").unwrap();
     /// let deepl = DeepLApi::with(&key).new();
     ///
     /// let _: CreateGlossaryResp = deepl
     ///     .create_glossary("My Glossary")
-    ///     .source("Hello", Lang::EN)
-    ///     .target("Guten Tag", Lang::DE)
+    ///     .source("Hello", GlossaryLanguage::En)
+    ///     .target("Guten Tag", GlossaryLanguage::De)
     ///     .format(EntriesFormat::CSV) // This field is optional, we will use TSV as default.
     ///     .send()
     ///     .await
@@ -334,65 +348,70 @@ impl DeepLApi {
 
     /// Retrieve the list of language pairs supported by the glossary feature.
     pub async fn list_glossary_language_pairs(&self) -> Result<Vec<GlossaryLanguagePair>> {
-        let pair = self
+        Ok(self
             .get(self.get_endpoint("glossary-language-pairs"))
             .send()
             .await
             .map_err(|e| Error::RequestFail(e.to_string()))?
-            .json::<HashMap<String, Vec<GlossaryLanguagePair>>>()
+            .json::<GlossaryLanguagePairsResponse>()
             .await
             .map_err(|err| {
                 Error::RequestFail(format!("fail to list glossary language pairs: {err}"))
             })?
-            .remove("supported_languages")
-            .ok_or(Error::RequestFail(
-                "Fail to get supported languages from glossary language pairs".to_string(),
-            ))?;
-
-        Ok(pair)
+            .supported_languages)
     }
 }
 
-#[tokio::test]
-async fn test_glossary_api() {
-    use crate::{glossary::EntriesFormat, DeepLApi, Lang};
+#[cfg(test)]
+mod test {
+    use super::*;
 
-    let key = std::env::var("DEEPL_API_KEY").unwrap();
-    let deepl = DeepLApi::with(&key).new();
+    #[tokio::test]
+    async fn test_list_glossary_languages() {
+        let key = std::env::var("DEEPL_API_KEY").unwrap();
+        let deepl = DeepLApi::with(&key).new();
 
-    assert_ne!(deepl.list_glossary_language_pairs().await.unwrap().len(), 0);
+        let pairs = deepl.list_glossary_language_pairs().await.unwrap();
+        assert!(!pairs.is_empty());
+    }
 
-    let my_entries = vec![("Hello", "Guten Tag"), ("Bye", "Auf Wiedersehen")];
-    // let my_entries = HashMap::from([("Hello", "Guten Tag"), ("Bye", "Auf Wiedersehen")]);
-    let resp = deepl
-        .create_glossary("My Glossary")
-        .source_lang(Lang::EN)
-        .target_lang(Lang::DE)
-        .entries(&my_entries)
-        .format(EntriesFormat::CSV) // This field is optional, we will use TSV as default.
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.name, "My Glossary");
+    #[tokio::test]
+    async fn test_glossary_api() {
+        let key = std::env::var("DEEPL_API_KEY").unwrap();
+        let deepl = DeepLApi::with(&key).new();
 
-    let all = deepl.list_all_glossaries().await.unwrap();
-    assert_ne!(all.len(), 0);
+        let my_entries = vec![("Hello", "Guten Tag"), ("Bye", "Auf Wiedersehen")];
+        // let my_entries = HashMap::from([("Hello", "Guten Tag"), ("Bye", "Auf Wiedersehen")]);
+        let resp = deepl
+            .create_glossary("My Glossary")
+            .source_lang(GlossaryLanguage::En)
+            .target_lang(GlossaryLanguage::De)
+            .entries(&my_entries)
+            .format(EntriesFormat::CSV) // This field is optional, we will use TSV as default.
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.name, "My Glossary");
 
-    let detail = deepl
-        .retrieve_glossary_details(&resp.glossary_id)
-        .await
-        .unwrap();
+        let all = deepl.list_all_glossaries().await.unwrap();
+        assert_ne!(all.len(), 0);
 
-    assert_eq!(detail, resp);
+        let detail = deepl
+            .retrieve_glossary_details(&resp.glossary_id)
+            .await
+            .unwrap();
 
-    let entries = deepl
-        .retrieve_glossary_entries(&resp.glossary_id)
-        .await
-        .unwrap();
-    assert_eq!(entries.len(), 2);
-    let entries: HashMap<String, String> = HashMap::from_iter(entries);
-    assert_eq!(entries["Hello"], "Guten Tag");
-    assert_eq!(entries["Bye"], "Auf Wiedersehen");
+        assert_eq!(detail, resp);
 
-    deepl.delete_glossary(resp.glossary_id).await.unwrap();
+        let entries = deepl
+            .retrieve_glossary_entries(&resp.glossary_id)
+            .await
+            .unwrap();
+        assert_eq!(entries.len(), 2);
+        let entries: HashMap<String, String> = HashMap::from_iter(entries);
+        assert_eq!(entries["Hello"], "Guten Tag");
+        assert_eq!(entries["Bye"], "Auf Wiedersehen");
+
+        deepl.delete_glossary(resp.glossary_id).await.unwrap();
+    }
 }
