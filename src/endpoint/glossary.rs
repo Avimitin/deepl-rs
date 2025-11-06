@@ -2,6 +2,7 @@ use crate::{
     endpoint::{Error, Result, REPO_URL},
     DeepLApi,
 };
+use core::fmt;
 use core::future::IntoFuture;
 use std::borrow::Borrow;
 use std::collections::HashMap;
@@ -199,17 +200,20 @@ impl<'a> From<CreateGlossary<'a>> for CreateGlossaryRequestParam {
     }
 }
 
+/// Format used for glossary entries.
 #[derive(Debug)]
 pub enum EntriesFormat {
+    /// Tab separated values (TSV)
     TSV,
+    /// Comma separated values (CSV)
     CSV,
 }
 
-impl ToString for EntriesFormat {
-    fn to_string(&self) -> String {
+impl fmt::Display for EntriesFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            EntriesFormat::TSV => "tsv".to_string(),
-            EntriesFormat::CSV => "csv".to_string(),
+            Self::TSV => f.write_str("tsv"),
+            Self::CSV => f.write_str("csv"),
         }
     }
 }
