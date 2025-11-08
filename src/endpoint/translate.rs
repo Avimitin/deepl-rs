@@ -267,7 +267,7 @@ async fn test_models() {
 
         assert!(response
             .translations
-            .get(0)
+            .first()
             .expect("should be a translation")
             .text
             .contains("Don't move")); // the last word can differ depending on the model chosen
