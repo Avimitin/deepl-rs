@@ -92,58 +92,17 @@ impl<'a> IntoFuture for CreateGlossary<'a> {
                 .json(&fields)
                 .send()
                 .await
-                .map_err(|err| Error::RequestFail(err.to_string()))?
-                .json::<GlossaryPossibleResps>()
-                .await
-                .unwrap_or_else(|_| {
-                    panic!(
-                    "Unmatched response to CreateGlossaryResp, please open issue on {REPO_URL}."
-                )
-                });
-
-            match resp {
-                GlossaryPossibleResps::Fail { message } => Err(Error::RequestFail(format!(
-                    "Fail to create request to glossary API: {message}"
-                ))),
-                GlossaryPossibleResps::Success {
-                    glossary_id,
-                    name,
-                    ready,
-                    source_lang,
-                    target_lang,
-                    creation_time,
-                    entry_count,
-                } => Ok(GlossaryResp {
-                    glossary_id,
-                    name,
-                    ready,
-                    source_lang,
-                    target_lang,
-                    creation_time,
-                    entry_count,
-                }),
+                .map_err(|err| Error::RequestFail(err.to_string()))?;
+            if !resp.status().is_success() {
+                return super::extract_deepl_error(resp).await;
             }
+            resp.json::<GlossaryResp>().await.map_err(|e| {
+                Error::InvalidResponse(format!("convert json bytes to Rust type: {e}"))
+            })
         };
 
         Box::pin(fut)
     }
-}
-
-#[derive(serde::Deserialize)]
-#[serde(untagged)]
-enum GlossaryPossibleResps {
-    Success {
-        glossary_id: String,
-        name: String,
-        ready: bool,
-        source_lang: GlossaryLanguage,
-        target_lang: GlossaryLanguage,
-        creation_time: String,
-        entry_count: u64,
-    },
-    Fail {
-        message: String,
-    },
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -265,11 +224,15 @@ impl DeepLApi {
 
     /// List all glossaries and their meta-information, but not the glossary entries.
     pub async fn list_all_glossaries(&self) -> Result<Vec<GlossaryResp>> {
-        self.get(self.get_endpoint("glossaries"))
+        let resp = self
+            .get(self.get_endpoint("glossaries"))
             .send()
             .await
-            .map_err(|e| Error::RequestFail(e.to_string()))?
-            .json::<HashMap<String, Vec<GlossaryResp>>>()
+            .map_err(|e| Error::RequestFail(e.to_string()))?;
+        if !resp.status().is_success() {
+            return super::extract_deepl_error(resp).await;
+        }
+        resp.json::<HashMap<String, Vec<GlossaryResp>>>()
             .await
             .map_err(|err| Error::RequestFail(format!("Unexpected error when requesting list_all_glossaries, please open issue on {REPO_URL}: {err}")))?
             .remove("glossaries")
@@ -279,36 +242,17 @@ impl DeepLApi {
     /// Retrieve meta information for a single glossary, omitting the glossary entries.
     /// Require a unique ID assigned to the glossary.
     pub async fn retrieve_glossary_details(&self, id: impl ToString) -> Result<GlossaryResp> {
-        match self
+        let resp = self
             .get(self.get_endpoint(&format!("glossaries/{}", id.to_string())))
             .send()
             .await
-            .map_err(|e| Error::RequestFail(e.to_string()))?
-            .json::<GlossaryPossibleResps>()
-            .await
-            .expect("")
-        {
-            GlossaryPossibleResps::Fail { message } => Err(Error::RequestFail(format!(
-                "fail to send request to glossary API: {message}"
-            ))),
-            GlossaryPossibleResps::Success {
-                glossary_id,
-                name,
-                ready,
-                source_lang,
-                target_lang,
-                creation_time,
-                entry_count,
-            } => Ok(GlossaryResp {
-                glossary_id,
-                name,
-                ready,
-                source_lang,
-                target_lang,
-                creation_time,
-                entry_count,
-            }),
+            .map_err(|e| Error::RequestFail(e.to_string()))?;
+        if !resp.status().is_success() {
+            return super::extract_deepl_error(resp).await;
         }
+        resp.json::<GlossaryResp>()
+            .await
+            .map_err(|e| Error::InvalidResponse(format!("convert json bytes to Rust type: {e}")))
     }
 
     /// Deletes the specified glossary.
@@ -352,17 +296,20 @@ impl DeepLApi {
 
     /// Retrieve the list of language pairs supported by the glossary feature.
     pub async fn list_glossary_language_pairs(&self) -> Result<Vec<GlossaryLanguagePair>> {
-        Ok(self
+        let resp = self
             .get(self.get_endpoint("glossary-language-pairs"))
             .send()
             .await
-            .map_err(|e| Error::RequestFail(e.to_string()))?
-            .json::<GlossaryLanguagePairsResponse>()
+            .map_err(|e| Error::RequestFail(e.to_string()))?;
+        if !resp.status().is_success() {
+            return super::extract_deepl_error(resp).await;
+        }
+        resp.json::<GlossaryLanguagePairsResponse>()
             .await
+            .map(|resp| resp.supported_languages)
             .map_err(|err| {
-                Error::RequestFail(format!("fail to list glossary language pairs: {err}"))
-            })?
-            .supported_languages)
+                Error::InvalidResponse(format!("convert json bytes to Rust type: {err}"))
+            })
     }
 }
 
