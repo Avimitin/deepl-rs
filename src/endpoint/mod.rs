@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::{future::Future, pin::Pin};
 use thiserror::Error;
 
@@ -118,17 +118,11 @@ impl std::fmt::Display for Formality {
     }
 }
 
-// detail message of the API error
-#[derive(Deserialize)]
-struct DeepLErrorResp {
-    message: String,
-}
-
 /// Turn DeepL API error message into [`Error`]
-async fn extract_deepl_error<T>(res: reqwest::Response) -> Result<T> {
-    let resp = res
-        .json::<DeepLErrorResp>()
-        .await
-        .map_err(|err| Error::InvalidResponse(format!("invalid error response: {err}")))?;
-    Err(Error::RequestFail(resp.message))
+async fn extract_deepl_error<T>(resp: reqwest::Response) -> Result<T> {
+    let status = resp.status();
+    match resp.text().await.ok() {
+        Some(message) => Err(Error::RequestFail(format!("{status} {message}"))),
+        None => Err(Error::RequestFail(format!("{status}"))),
+    }
 }
