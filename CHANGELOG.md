@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.7.0 - 2025-11-12
+
+> Thanks GitHub@ValuedMammal for all the contributions.
+
+- Add `GloassaryLanguage` enumeration and change `GloassaryLanguagePair` to use it. (API BREAKING)
+- `glossary::EntriesFormat` now have `Display` implementation.
+- Add `Error::Network` variant to hold client side network issue.
+- Add multiple language to `Lang` variant.
+    * Hebrew
+    * Thai
+    * Vietnamese
+    * Spanish (Latin America)
+- Fix internal clippy warning.
+
 ## v0.6.6 - 2025-07-17
 
 - Add support for choosing different model
