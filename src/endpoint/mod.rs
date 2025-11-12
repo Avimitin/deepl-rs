@@ -1,3 +1,4 @@
+use reqwest::StatusCode;
 use serde::Serialize;
 use std::{future::Future, pin::Pin};
 use thiserror::Error;
@@ -16,6 +17,9 @@ pub enum Error {
 
     #[error("request fail: {0}")]
     RequestFail(String),
+
+    #[error("{status} {message}")]
+    Network { status: StatusCode, message: String },
 
     #[error("fail to read file {0}: {1}")]
     ReadFileError(String, tokio::io::Error),
@@ -120,9 +124,8 @@ impl std::fmt::Display for Formality {
 
 /// Turn DeepL API error message into [`Error`]
 async fn extract_deepl_error<T>(resp: reqwest::Response) -> Result<T> {
-    let status = resp.status();
-    match resp.text().await.ok() {
-        Some(message) => Err(Error::RequestFail(format!("{status} {message}"))),
-        None => Err(Error::RequestFail(format!("{status}"))),
-    }
+    Err(Error::Network {
+        status: resp.status(),
+        message: resp.text().await.unwrap_or_default(),
+    })
 }
