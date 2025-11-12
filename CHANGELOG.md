@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.7.1 - 2025-11-12
+
+- Bump dependencies
+```text
+name         old_req  latest
+====         =======  ======
+thiserror    2.0.12   2.0.17
+reqwest      0.12.22  0.12.14
+serde        1.0.219  1.0.228
+serde_json   1.0.140  1.0.145
+tokio        1.46.1   1.48.0
+```
+
 ## v0.7.0 - 2025-11-12
 
 > Thanks GitHub@ValuedMammal for all the contributions.
