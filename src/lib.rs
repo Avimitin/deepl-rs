@@ -1,29 +1,4 @@
-//! # deepl-rs
-//!
-//! Deepl-rs is a simple library for making requests to the DeepL API endpoint easier.
-//! And it also provides types wrapping to guarantee runtime safety.
-//!
-//! This is still a **WORK IN PROGRESS** library, please open an issue on GitHub to request
-//! features. Be aware breaking changes will be released frequently.
-//!
-//! # Usage
-//!
-//! ```rust
-//! use deepl::DeepLApi;
-//!
-//! let key = std::env::var("DEEPL_API_KEY").unwrap();
-//! let api = DeepLApi::with(&key).new();
-//! let response = api.translate_text("Hello World", Lang::ZH).await.unwrap();
-//!
-//! assert!(!response.translations.is_empty());
-//! ```
-//!
-//! See [`DeepLApi`] for detailed usage.
-//!
-//! # License
-//!
-//! This project is licensed under MIT license.
-//!
+#![doc = include_str!("../README.md")]
 
 mod endpoint;
 mod lang;

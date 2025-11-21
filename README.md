@@ -4,13 +4,15 @@
 [<img alt="crates.io" src="https://img.shields.io/crates/v/deepl.svg?style=flat&color=fd7726&labelColor=252535&logo=rust" height="20">](https://crates.io/crates/deepl)
 [<img alt="docs.rs" src="https://img.shields.io/docsrs/deepl?color=2b5a28&logo=rust&labelColor=252535" height="20">](https://docs.rs/deepl/latest/deepl/)
 
-Typed HTTP wrapper for interacting with DeepL API. File upload/download is also implemented.
+`deepl-rs` is a web request library for making requests to the DeepL API
+endpoint easier. It provides types wrapping to help developer gain correctness
+confidence.
 
 ## Usage
 
 ```toml
 [dependencies]
-deepl = "0.6"
+deepl = "0.7"
 ```
 
 ```rust
@@ -27,15 +29,18 @@ Read [examples](./examples) for more usage.
 
 ## Collaboration
 
-If you find any bugs in this project or feel confused about any part of the code,
-feel free to open new issue.
+If you find any bugs in this project or feel confused about any part of the
+code, feel free to open new issue.
+
+DeepL API rapidly update and change, and this crate can't catch up in-time.
+Feel free to file new issue if `deepl-rs` mismatch with the DeepL API.
 
 If you want to submit some code modification but don't know how to setup the
-code environment, you can follow the
-[Nix Installation](https://nixos.org/manual/nix/stable/installation/installing-binary.html#installing-a-binary-distribution)
-and [enable flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes).
-Then simply run `nix develop` in the project root, all the build dependencies will setup
-for you.
+code environment, you can follow the [Nix
+Installation](https://nixos.org/manual/nix/stable/installation/installing-binary.html#installing-a-binary-distribution)
+and [enable flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes). Then
+simply run `nix develop` in the project root, all the build dependencies will
+setup for you.
 
 ## License
 
