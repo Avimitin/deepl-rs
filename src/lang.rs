@@ -102,8 +102,8 @@ generate_langs! {
     ("DE",    "German");
     ("EL",    "Greek");
     ("EN",    "English (Unspecified variant)");
-    ("EN-GB", "English (American)");
-    ("EN-US", "English (British)");
+    ("EN-GB", "English (British)");
+    ("EN-US", "English (American)");
     ("ES",    "Spanish");
     ("ES-419",    "Spanish (Latin America)");
     ("ET",    "Estonian");
