@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.7.2 - 2025-11-22
+
+- Fix en_US and en_GB description
+
 ## v0.7.1 - 2025-11-12
 
 - Bump dependencies
