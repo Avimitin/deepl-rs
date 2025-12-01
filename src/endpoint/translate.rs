@@ -163,6 +163,40 @@ impl<'a> TranslateRequester<'a> {
     }
 }
 
+pub trait ToTranslatable {
+    fn to_translatable(&self) -> Vec<String>;
+}
+
+impl ToTranslatable for String {
+    fn to_translatable(&self) -> Vec<String> {
+        vec![self.to_owned()]
+    }
+}
+
+impl ToTranslatable for &str {
+    fn to_translatable(&self) -> Vec<String> {
+        vec![self.to_string()]
+    }
+}
+
+impl ToTranslatable for Vec<String> {
+    fn to_translatable(&self) -> Vec<String> {
+        self.clone()
+    }
+}
+
+impl ToTranslatable for &[String] {
+    fn to_translatable(&self) -> Vec<String> {
+        self.to_vec()
+    }
+}
+
+impl ToTranslatable for &[&str] {
+    fn to_translatable(&self) -> Vec<String> {
+        self.iter().map(|s| s.to_string()).collect()
+    }
+}
+
 impl DeepLApi {
     /// Translate the given text with specific target language.
     ///
@@ -205,8 +239,12 @@ impl DeepLApi {
     /// let should = "Hallo Welt <keep>This will stay exactly the way it was</keep>";
     /// assert_eq!(translated_results[0].text, should);
     /// ```
-    pub fn translate_text(&self, text: impl ToString, target_lang: Lang) -> TranslateRequester<'_> {
-        TranslateRequester::new(self, vec![text.to_string()], target_lang)
+    pub fn translate_text(
+        &self,
+        input: impl ToTranslatable,
+        target_lang: Lang,
+    ) -> TranslateRequester<'_> {
+        TranslateRequester::new(self, input.to_translatable(), target_lang)
     }
 }
 
