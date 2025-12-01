@@ -1,6 +1,6 @@
 [package]
 name = "deepl"
-version = "0.7.2"
+version = "0.7.3"
 edition = "2021"
 authors = ["Avimitin <avimitin@gmail.com>"]
 description = "A Rust implementation of the DeepL API"

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.7.3 - 2025-12-01
+
+- Allow `String` and `Vec<String>` as translate API input
+
 ## v0.7.2 - 2025-11-22
 
 - Fix en_US and en_GB description
