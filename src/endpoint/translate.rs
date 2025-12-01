@@ -197,6 +197,12 @@ impl ToTranslatable for &[&str] {
     }
 }
 
+impl<const SIZE: usize> ToTranslatable for [&str; SIZE] {
+    fn to_translatable(&self) -> Vec<String> {
+        self.iter().map(|s| s.to_string()).collect()
+    }
+}
+
 impl DeepLApi {
     /// Translate the given text with specific target language.
     ///
@@ -259,6 +265,19 @@ async fn test_translate_text() {
     let translated_results = response.translations;
     assert_eq!(translated_results[0].text, "你好，世界");
     assert_eq!(translated_results[0].detected_source_language, Lang::EN);
+
+    let response = api
+        .translate_text(["内存安全", "疾如闪电"], Lang::EN)
+        .await
+        .unwrap();
+    assert!(!response.translations.is_empty());
+    let translated_results = response.translations;
+
+    assert_eq!(translated_results[0].text, "Memory Safety");
+    assert_eq!(translated_results[0].detected_source_language, Lang::ZH);
+
+    assert_eq!(translated_results[1].text, "as fast as lightning");
+    assert_eq!(translated_results[1].detected_source_language, Lang::ZH);
 }
 
 #[tokio::test]
