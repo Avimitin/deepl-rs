@@ -163,6 +163,7 @@ impl<'a> TranslateRequester<'a> {
     }
 }
 
+/// A value that can be used as text input for the api/v2/translate endpoint
 pub trait ToTranslatable {
     fn to_translatable(&self) -> Vec<String>;
 }
