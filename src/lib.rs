@@ -10,7 +10,7 @@ pub use endpoint::{
     document::{DocumentStatusResp, DocumentTranslateStatus, UploadDocumentResp},
     glossary,
     languages::{LangInfo, LangType},
-    translate::{ModelType, TagHandling, ToTranslatable, TranslateTextResp},
+    translate::{ModelType, TagHandling, ToTranslatable, TranslateTextResp, PreserveFormatting, SplitSentences},
     usage::UsageResponse,
     Error, Formality,
 };
