@@ -106,7 +106,9 @@ async fn test_missing_language_error() {
     use crate::Lang;
     let deepl = DeepLApi::with(&std::env::var("DEEPL_API_KEY").unwrap()).new();
 
-    let res = deepl.translate_text("kini angay ilhon nga cebuano", Lang::EN).await;
+    let res = deepl
+        .translate_text("kini angay ilhon nga cebuano", Lang::EN)
+        .await;
 
     let error = format!("{}", res.err().unwrap());
     println!("Error is:\n{error}");
