@@ -1,3 +1,4 @@
+use std::error::Error as StdError;
 use std::future::IntoFuture;
 
 use crate::{
@@ -153,6 +154,14 @@ impl<'a> TranslateRequester<'a> {
             }
 
             let response: TranslateTextResp = response.json().await.map_err(|err| {
+                if err.is_decode() {
+                    // If serialization failed, useful information is hidden in the source
+                    if let Some(source) = err.source() {
+                        return Error::InvalidResponse(format!(
+                            "convert json bytes to Rust type: {source}"
+                        ));
+                    }
+                }
                 Error::InvalidResponse(format!("convert json bytes to Rust type: {err}"))
             })?;
 
