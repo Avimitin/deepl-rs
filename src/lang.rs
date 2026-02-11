@@ -146,7 +146,7 @@ impl<'de> Deserialize<'de> for Lang {
 
         let lang = Lang::try_from(&lang).map_err(|_| {
             serde::de::Error::custom(
-                format!("invalid language code {lang}. This is an internal issue with the lib, please open issue")
+                format!("invalid language code {lang}. This is an internal issue with the lib, please open an issue!")
             )
         })?;
 
