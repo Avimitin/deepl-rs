@@ -97,6 +97,7 @@ macro_rules! generate_langs {
 generate_langs! {
     ("AR",    "Arabic");
     ("BG",    "Bulgarian");
+    ("BS",    "Bosnian");
     ("CS",    "Czech");
     ("DA",    "Danish");
     ("DE",    "German");
@@ -110,6 +111,7 @@ generate_langs! {
     ("FI",    "Finnish");
     ("FR",    "French");
     ("HE",    "Hebrew");
+    ("HR",    "Croatian");
     ("HU",    "Hungarian");
     ("ID",    "Indonesian");
     ("IT",    "Italian");
@@ -127,6 +129,7 @@ generate_langs! {
     ("RU",    "Russian");
     ("SK",    "Slovak");
     ("SL",    "Slovenian");
+    ("SR",    "Serbian");
     ("SV",    "Swedish");
     ("TH",    "Thai");
     ("TR",    "Turkish");

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add `HR` (Croatian), `SR` (Serbian), and `BS` (Bosnian) variants to `Lang`.
+  These are supported by DeepL's HTTP API as both source and target languages.
+
 ## v0.7.3 - 2025-12-01
 
 - Allow `String` and `Vec<String>` as translate API input
