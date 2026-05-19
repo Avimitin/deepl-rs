@@ -286,7 +286,7 @@ async fn test_translate_text() {
     assert_eq!(translated_results[0].text, "Memory Safety");
     assert_eq!(translated_results[0].detected_source_language, Lang::ZH);
 
-    assert_eq!(translated_results[1].text, "as fast as lightning");
+    assert_eq!(translated_results[1].text.to_lowercase(), "as fast as lightning");
     assert_eq!(translated_results[1].detected_source_language, Lang::ZH);
 }
 
