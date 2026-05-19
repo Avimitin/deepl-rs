@@ -331,6 +331,11 @@ mod test {
         let key = std::env::var("DEEPL_API_KEY").unwrap();
         let deepl = DeepLApi::with(&key).new();
 
+        let all = deepl.list_all_glossaries().await.unwrap();
+        for g in all {
+            deepl.delete_glossary(g.glossary_id).await.unwrap();
+        }
+
         let my_entries = vec![("Hello", "Guten Tag"), ("Bye", "Auf Wiedersehen")];
         // let my_entries = HashMap::from([("Hello", "Guten Tag"), ("Bye", "Auf Wiedersehen")]);
         let resp = deepl
