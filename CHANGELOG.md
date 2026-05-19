@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## v0.8.0 - 2026-05-20
+
+- Sync `Lang` enum with current DeepL API: expanded from 42 to 108 supported languages.
+  This includes `AF` (Afrikaans), `AN` (Aragonese), `AS` (Assamese), `AY` (Aymara),
+  `AZ` (Azerbaijani), `BA` (Bashkir), `BE` (Belarusian), `BN` (Bengali), `BR` (Breton),
+  `CA` (Catalan), `CY` (Welsh), `DE-DE` (German Germany), `EO` (Esperanto),
+  `ES-419` (Spanish Latin America), `EU` (Basque), `FA` (Persian), `FR-FR` (French France),
+  `GA` (Irish), `GL` (Galician), `GN` (Guarani), `GU` (Gujarati), `HA` (Hausa),
+  `HI` (Hindi), `HT` (Haitian Creole), `HY` (Armenian), `IG` (Igbo), `IS` (Icelandic),
+  `JV` (Javanese), `KA` (Georgian), `KK` (Kazakh), `KY` (Kyrgyz), `LA` (Latin),
+  `LB` (Luxembourgish), `LN` (Lingala), `MG` (Malagasy), `MI` (Maori), `MK` (Macedonian),
+  `ML` (Malayalam), `MN` (Mongolian), `MR` (Marathi), `MS` (Malay), `MT` (Maltese),
+  `MY` (Burmese), `NE` (Nepali), `OC` (Occitan), `OM` (Oromo), `PA` (Punjabi),
+  `PS` (Pashto), `PT-PT` (Portuguese European), `QU` (Quechua), `SA` (Sanskrit),
+  `SQ` (Albanian), `ST` (Sesotho), `SU` (Sundanese), `SW` (Swahili), `TA` (Tamil),
+  `TE` (Telugu), `TG` (Tajik), `TK` (Turkmen), `TL` (Tagalog), `TN` (Tswana),
+  `TS` (Tsonga), `TT` (Tatar), `UR` (Urdu), `UZ` (Uzbek), `WO` (Wolof), `XH` (Xhosa),
+  `YI` (Yiddish), `ZU` (Zulu), and more.
 - Add `HR` (Croatian), `SR` (Serbian), and `BS` (Bosnian) variants to `Lang`.
   These are supported by DeepL's HTTP API as both source and target languages.
 
