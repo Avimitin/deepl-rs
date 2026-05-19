@@ -12,7 +12,7 @@ confidence.
 
 ```toml
 [dependencies]
-deepl = "0.7"
+deepl = "0.8"
 ```
 
 ```rust
