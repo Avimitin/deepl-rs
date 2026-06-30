@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.8.1 - 2026-06-30
+
+- Bump `reqwest` to `0.13`.
+- Feature-gate TLS backend selection with `native-tls` as the default and `rustls` as an opt-in feature.
+- Keep `reqwest` system proxy support enabled with the explicit feature list.
+
 ## v0.8.0 - 2026-05-20
 
 - Sync `Lang` enum with current DeepL API: expanded from 42 to 108 supported languages.
