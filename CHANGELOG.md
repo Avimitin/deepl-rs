@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.8.2 - 2026-09-17
+
+- Derive `Eq` and `Hash` for `GlossaryLanguage` so it can be used as a key in hash tables.
+- Bump direct dependencies: `thiserror` to `2.0.20`, `reqwest` to `0.13.5`,
+  `serde` to `1.0.229`, `serde_json` to `1.0.151`, `tokio` to `1.53.1`,
+  `tokio-stream` to `0.1.19`, `typed-builder` to `0.23.2`, and `docx-rs` to `0.4.22`.
+
 ## v0.8.1 - 2026-06-30
 
 - Bump `reqwest` to `0.13`.
