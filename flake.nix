@@ -31,6 +31,7 @@
             pkgs.rust-analyzer-unwrapped
             pkgs.cargo-expand
             pkgs.openssl
+            pkgs.pkg-config
           ];
 
           # To make rust-analyzer work correctly (The path prefix issue)
