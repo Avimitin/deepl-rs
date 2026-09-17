@@ -4,7 +4,7 @@ macro_rules! impl_glossary_languages {
     ( $($lang:literal, $name:literal $(,)? )+ ) => {
         paste! {
             /// Glossary languages.
-            #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+            #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
             #[serde(rename_all = "lowercase")]
             pub enum GlossaryLanguage {
                 $(
